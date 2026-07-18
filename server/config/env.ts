@@ -83,23 +83,4 @@ export const env = {
   MICROSOFT_OIDC_CLIENT_SECRET: process.env.MICROSOFT_OIDC_CLIENT_SECRET,
   /** e.g. organizations | common | or a directory (tenant) GUID */
   MICROSOFT_OIDC_TENANT: process.env.MICROSOFT_OIDC_TENANT?.trim() || 'organizations',
-  /** Telehealth default provider: livekit (default) | teams */
-  TELEHEALTH_PROVIDER: process.env.TELEHEALTH_PROVIDER?.trim().toLowerCase() || "livekit",
-  /** LiveKit WebRTC telehealth */
-  LIVEKIT_API_KEY: process.env.LIVEKIT_API_KEY?.trim(),
-  LIVEKIT_API_SECRET: process.env.LIVEKIT_API_SECRET?.trim(),
-  /** WebSocket URL patients/clinicians connect to, e.g. wss://your-project.livekit.cloud */
-  LIVEKIT_WS_URL: process.env.LIVEKIT_WS_URL?.trim(),
-  /** HTTP API URL for room management, e.g. https://your-project.livekit.cloud */
-  LIVEKIT_HTTP_URL: process.env.LIVEKIT_HTTP_URL?.trim(),
-  /** Microsoft Graph — Teams online meetings (when TELEHEALTH_PROVIDER=teams) */
-  TEAMS_GRAPH_TENANT_ID:
-    process.env.TEAMS_GRAPH_TENANT_ID?.trim() ||
-    process.env.MICROSOFT_OIDC_TENANT?.trim() ||
-    "organizations",
-  TEAMS_GRAPH_CLIENT_ID: process.env.TEAMS_GRAPH_CLIENT_ID || process.env.MICROSOFT_OIDC_CLIENT_ID,
-  TEAMS_GRAPH_CLIENT_SECRET:
-    process.env.TEAMS_GRAPH_CLIENT_SECRET || process.env.MICROSOFT_OIDC_CLIENT_SECRET,
-  TEAMS_ORGANIZER_USER_ID: process.env.TEAMS_ORGANIZER_USER_ID?.trim(),
-  TEAMS_ORGANIZER_EMAIL: process.env.TEAMS_ORGANIZER_EMAIL?.trim(),
 } as const;

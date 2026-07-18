@@ -118,6 +118,8 @@ import {
   type InsertImpersonationEvent,
   type MedicalInventory,
   type InsertMedicalInventory,
+  type InventoryItem,
+  type InsertInventoryItem,
   type InventoryTransaction,
   type InsertInventoryTransaction,
   type StockRequisition,
@@ -932,6 +934,20 @@ export interface IStorage {
   updateMedicalInventory(id: string, inventory: Partial<InsertMedicalInventory>, tenantId: string): Promise<MedicalInventory>;
   deleteMedicalInventory(id: string, tenantId: string): Promise<void>;
   getMedicalInventoryByCode(itemCode: string, tenantId: string): Promise<MedicalInventory | undefined>;
+
+  /** Master catalog (inventory_items only — no per-location stock). */
+  listInventoryCatalog(
+    tenantId: string,
+    filters?: { category?: string; status?: string }
+  ): Promise<Array<InventoryItem & { stockLocationCount: number; totalStock: number }>>;
+  getInventoryCatalogItem(id: string, tenantId: string): Promise<InventoryItem | undefined>;
+  createInventoryCatalogItem(item: InsertInventoryItem | Omit<InsertInventoryItem, "itemCode"> & { itemCode?: string }, tenantId: string): Promise<InventoryItem>;
+  updateInventoryCatalogItem(
+    id: string,
+    item: Partial<InsertInventoryItem>,
+    tenantId: string
+  ): Promise<InventoryItem>;
+  deleteInventoryCatalogItem(id: string, tenantId: string): Promise<void>;
   
   // Inventory transaction operations
   createInventoryTransaction(transaction: InsertInventoryTransaction, tenantId: string): Promise<InventoryTransaction>;
@@ -1032,6 +1048,17 @@ export interface IStorage {
     receivedById: string,
     tenantId: string,
     options: { locationId?: string; items: Array<{ itemId: string; quantityReceived: number }> }
+  ): Promise<PurchaseOrder | undefined>;
+  /** Reverse previously received quantities: decrease stock at location, reduce quantityReceived, log return_to_supplier. */
+  reversePurchaseOrderReceive(
+    poId: string,
+    reversedById: string,
+    tenantId: string,
+    options: {
+      locationId: string;
+      items: Array<{ itemId: string; quantityReversed: number }>;
+      notes?: string;
+    }
   ): Promise<PurchaseOrder | undefined>;
   
   // Purchase order item operations
@@ -1936,9 +1963,9 @@ export class DatabaseStorage implements IStorage {
       .insert(careLocations)
       .values({
         tenantId,
-        locationName: 'Default Location',
+        locationName: 'Main Store',
         locationCode: 'MAIN',
-        description: 'Primary/default care location',
+        description: 'Primary/default store location',
         status: 'active',
         isPrimary: true,
         locationKind: "fixed_site",
@@ -7090,6 +7117,222 @@ export class DatabaseStorage implements IStorage {
     return this.mergeStockWithItem(row.stock, row.item);
   }
 
+  async listInventoryCatalog(
+    tenantId: string,
+    filters?: { category?: string; status?: string }
+  ): Promise<Array<InventoryItem & { stockLocationCount: number; totalStock: number }>> {
+    const conditions = [eq(inventoryItems.tenantId, tenantId)];
+    if (filters?.category) conditions.push(eq(inventoryItems.category, filters.category));
+    if (filters?.status) conditions.push(eq(inventoryItems.status, filters.status as any));
+
+    const items = await db
+      .select()
+      .from(inventoryItems)
+      .where(and(...conditions))
+      .orderBy(inventoryItems.itemName);
+
+    if (items.length === 0) return [];
+
+    const stockAgg = await db
+      .select({
+        itemId: inventoryStock.itemId,
+        stockLocationCount: sql<number>`cast(count(*) as int)`,
+        totalStock: sql<number>`cast(coalesce(sum(${inventoryStock.currentStock}), 0) as int)`,
+      })
+      .from(inventoryStock)
+      .where(
+        and(
+          eq(inventoryStock.tenantId, tenantId),
+          inArray(
+            inventoryStock.itemId,
+            items.map((i) => i.id)
+          )
+        )
+      )
+      .groupBy(inventoryStock.itemId);
+
+    const byItem = new Map(stockAgg.map((r) => [r.itemId, r]));
+    return items.map((item) => {
+      const agg = byItem.get(item.id);
+      return {
+        ...item,
+        stockLocationCount: agg?.stockLocationCount ?? 0,
+        totalStock: agg?.totalStock ?? 0,
+      };
+    });
+  }
+
+  async getInventoryCatalogItem(id: string, tenantId: string): Promise<InventoryItem | undefined> {
+    const [item] = await db
+      .select()
+      .from(inventoryItems)
+      .where(and(eq(inventoryItems.id, id), eq(inventoryItems.tenantId, tenantId)));
+    return item;
+  }
+
+  async createInventoryCatalogItem(
+    item: InsertInventoryItem | (Omit<InsertInventoryItem, "itemCode"> & { itemCode?: string }),
+    tenantId: string
+  ): Promise<InventoryItem> {
+    const data: any = { ...item, tenantId };
+
+    await this.ensureDefaultInventoryCategories(tenantId);
+    const categoryRow = data.category
+      ? await this.getInventoryCategoryBySlug(String(data.category), tenantId)
+      : undefined;
+    if (!categoryRow || !categoryRow.isActive) {
+      throw new Error(`Unknown or inactive inventory category: ${data.category}`);
+    }
+    data.category = categoryRow.slug;
+
+    if (categoryRow.fieldTemplate === "equipment" && (data.brand == null || data.brand === "") && data.supplier) {
+      data.brand = data.supplier;
+    }
+
+    const itemCodeTrimmed = (data.itemCode ?? "").toString().trim();
+    const expectedPrefix = categoryRow.itemCodePrefix.toUpperCase();
+    const validItemCodePattern = new RegExp(
+      `^${expectedPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-[A-Z0-9]{3}\\d{4}(-\\d+)?$`,
+      "i"
+    );
+    const shouldGenerateCode = !itemCodeTrimmed || !validItemCodePattern.test(itemCodeTrimmed);
+    if (shouldGenerateCode && data.itemName) {
+      data.itemCode = await this.generateUniqueItemCode(tenantId, expectedPrefix, data.itemName);
+    }
+
+    const itemFields = [
+      "itemName",
+      "itemCode",
+      "category",
+      "brand",
+      "model",
+      "description",
+      "unitOfMeasure",
+      "dosageForm",
+      "supplier",
+      "supplierContact",
+      "supplierId",
+      "status",
+      "equipmentStatus",
+      "lastMaintenanceDate",
+      "nextMaintenanceDate",
+      "warrantyExpiry",
+      "serialNumber",
+      "lowStockAlert",
+      "expiryAlert",
+      "expiryAlertDays",
+      "companyId",
+      "imageUrl",
+      "barcode",
+    ];
+    const itemData: any = { tenantId };
+    itemFields.forEach((f) => {
+      if (data[f] !== undefined) itemData[f] = data[f];
+    });
+    if (itemData.lastMaintenanceDate instanceof Date) {
+      itemData.lastMaintenanceDate = itemData.lastMaintenanceDate.toISOString().split("T")[0];
+    }
+    if (itemData.nextMaintenanceDate instanceof Date) {
+      itemData.nextMaintenanceDate = itemData.nextMaintenanceDate.toISOString().split("T")[0];
+    }
+    if (itemData.warrantyExpiry instanceof Date) {
+      itemData.warrantyExpiry = itemData.warrantyExpiry.toISOString().split("T")[0];
+    }
+
+    const [newItem] = await db.insert(inventoryItems).values(itemData).returning();
+    if (!newItem) throw new Error("Failed to create catalog item");
+    return newItem;
+  }
+
+  async updateInventoryCatalogItem(
+    id: string,
+    item: Partial<InsertInventoryItem>,
+    tenantId: string
+  ): Promise<InventoryItem> {
+    const existing = await this.getInventoryCatalogItem(id, tenantId);
+    if (!existing) throw new Error("Catalog item not found");
+
+    const data: any = { ...item };
+    if (data.category != null) {
+      await this.ensureDefaultInventoryCategories(tenantId);
+      const categoryRow = await this.getInventoryCategoryBySlug(String(data.category), tenantId);
+      if (!categoryRow || !categoryRow.isActive) {
+        throw new Error(`Unknown or inactive inventory category: ${data.category}`);
+      }
+      data.category = categoryRow.slug;
+      if (categoryRow.fieldTemplate === "equipment" && (data.brand == null || data.brand === "") && data.supplier) {
+        data.brand = data.supplier;
+      }
+    }
+
+    const itemFields = [
+      "itemName",
+      "itemCode",
+      "category",
+      "brand",
+      "model",
+      "description",
+      "unitOfMeasure",
+      "dosageForm",
+      "supplier",
+      "supplierContact",
+      "supplierId",
+      "status",
+      "equipmentStatus",
+      "lastMaintenanceDate",
+      "nextMaintenanceDate",
+      "warrantyExpiry",
+      "serialNumber",
+      "lowStockAlert",
+      "expiryAlert",
+      "expiryAlertDays",
+      "companyId",
+      "imageUrl",
+      "barcode",
+    ];
+    const itemData: any = { updatedAt: new Date() };
+    itemFields.forEach((f) => {
+      if (data[f] !== undefined) itemData[f] = data[f];
+    });
+    if (itemData.lastMaintenanceDate instanceof Date) {
+      itemData.lastMaintenanceDate = itemData.lastMaintenanceDate.toISOString().split("T")[0];
+    }
+    if (itemData.nextMaintenanceDate instanceof Date) {
+      itemData.nextMaintenanceDate = itemData.nextMaintenanceDate.toISOString().split("T")[0];
+    }
+    if (itemData.warrantyExpiry instanceof Date) {
+      itemData.warrantyExpiry = itemData.warrantyExpiry.toISOString().split("T")[0];
+    }
+
+    const [updated] = await db
+      .update(inventoryItems)
+      .set(itemData)
+      .where(and(eq(inventoryItems.id, id), eq(inventoryItems.tenantId, tenantId)))
+      .returning();
+    if (!updated) throw new Error("Catalog item not found after update");
+    return updated;
+  }
+
+  async deleteInventoryCatalogItem(id: string, tenantId: string): Promise<void> {
+    const existing = await this.getInventoryCatalogItem(id, tenantId);
+    if (!existing) throw new Error("Catalog item not found");
+
+    const [agg] = await db
+      .select({
+        totalStock: sql<number>`cast(coalesce(sum(${inventoryStock.currentStock}), 0) as int)`,
+      })
+      .from(inventoryStock)
+      .where(and(eq(inventoryStock.itemId, id), eq(inventoryStock.tenantId, tenantId)));
+
+    if ((agg?.totalStock ?? 0) > 0) {
+      throw new Error(
+        "Cannot delete: stock remains at one or more locations. Set status to discontinued, or zero stock first."
+      );
+    }
+
+    await db.delete(inventoryItems).where(and(eq(inventoryItems.id, id), eq(inventoryItems.tenantId, tenantId)));
+  }
+
 
 
   // Equipment maintenance operations
@@ -7936,8 +8179,17 @@ export class DatabaseStorage implements IStorage {
     options: { locationId?: string; items: Array<{ itemId: string; quantityReceived: number }> }
   ): Promise<PurchaseOrder | undefined> {
     const locationId = options.locationId ?? (await this.getPrimaryCareLocation(tenantId))?.id;
-    if (!locationId) throw new Error("No receive location (set locationId or primary care location)");
+    if (!locationId) throw new Error("No receive location (set locationId or primary store location)");
     if (!options.items?.length) throw new Error("No items to receive");
+
+    const receiveLoc = await this.getCareLocation(locationId, tenantId);
+    if (!receiveLoc) throw new Error("Receive store not found for this business");
+    if (receiveLoc.locationKind === "ambulance") {
+      throw new Error("Cannot receive a purchase order into a fleet unit — choose a store location");
+    }
+    if (receiveLoc.status && receiveLoc.status !== "active") {
+      throw new Error("Cannot receive into an inactive store");
+    }
 
     return await db.transaction(async (tx) => {
       const [po] = await tx.select().from(purchaseOrders).where(and(eq(purchaseOrders.id, poId), eq(purchaseOrders.tenantId, tenantId)));
@@ -8002,6 +8254,136 @@ export class DatabaseStorage implements IStorage {
         actualDelivery: allReceived ? new Date().toISOString().split("T")[0] : po.actualDelivery,
         updatedAt: new Date(),
       }).where(and(eq(purchaseOrders.id, poId), eq(purchaseOrders.tenantId, tenantId))).returning();
+      return updated;
+    });
+  }
+
+  async reversePurchaseOrderReceive(
+    poId: string,
+    reversedById: string,
+    tenantId: string,
+    options: {
+      locationId: string;
+      items: Array<{ itemId: string; quantityReversed: number }>;
+      notes?: string;
+    }
+  ): Promise<PurchaseOrder | undefined> {
+    const locationId = options.locationId;
+    if (!locationId) throw new Error("locationId is required to reverse a receipt");
+    if (!options.items?.length) throw new Error("No items to reverse");
+
+    const receiveLoc = await this.getCareLocation(locationId, tenantId);
+    if (!receiveLoc) throw new Error("Store not found for this business");
+    if (receiveLoc.locationKind === "ambulance") {
+      throw new Error("Cannot reverse a purchase order from a fleet unit — choose a store location");
+    }
+
+    return await db.transaction(async (tx) => {
+      const [po] = await tx
+        .select()
+        .from(purchaseOrders)
+        .where(and(eq(purchaseOrders.id, poId), eq(purchaseOrders.tenantId, tenantId)));
+      if (!po) return undefined;
+      if (po.status === "cancelled") throw new Error("Cannot reverse receipts on a cancelled purchase order");
+
+      for (const { itemId: masterItemId, quantityReversed: qty } of options.items) {
+        if (qty <= 0) continue;
+        const [line] = await tx
+          .select()
+          .from(purchaseOrderItems)
+          .where(
+            and(
+              eq(purchaseOrderItems.poId, poId),
+              eq(purchaseOrderItems.itemId, masterItemId),
+              eq(purchaseOrderItems.tenantId, tenantId)
+            )
+          );
+        if (!line) throw new Error(`Item ${masterItemId} is not on this purchase order`);
+        const alreadyReceived = line.quantityReceived ?? 0;
+        if (qty > alreadyReceived) {
+          throw new Error(
+            `Cannot reverse ${qty}: only ${alreadyReceived} received for this line`
+          );
+        }
+
+        const [stockRow] = await tx
+          .select()
+          .from(inventoryStock)
+          .where(
+            and(
+              eq(inventoryStock.tenantId, tenantId),
+              eq(inventoryStock.itemId, masterItemId),
+              eq(inventoryStock.locationId, locationId)
+            )
+          );
+        if (!stockRow) {
+          throw new Error("No stock record at the selected store for one or more items");
+        }
+        const prev = stockRow.currentStock ?? 0;
+        if (qty > prev) {
+          throw new Error(
+            `Insufficient stock at selected store to reverse (have ${prev}, reversing ${qty})`
+          );
+        }
+        const next = prev - qty;
+        const unitCost = line.unitCost ?? stockRow.unitCost ?? undefined;
+        const totalCost = unitCost ? (parseFloat(unitCost) * qty).toFixed(2) : undefined;
+
+        await tx.insert(inventoryTransactions).values({
+          tenantId,
+          itemId: stockRow.id,
+          locationId,
+          transactionType: "return_to_supplier",
+          quantity: qty,
+          previousStock: prev,
+          newStock: next,
+          unitCost: unitCost ?? null,
+          totalCost: totalCost ?? null,
+          documentType: "purchase_order",
+          documentId: poId,
+          notes: options.notes?.trim()
+            ? options.notes.trim()
+            : `PO receipt reversal (${po.poNumber})`,
+          createdBy: reversedById,
+        });
+
+        await tx
+          .update(inventoryStock)
+          .set({
+            currentStock: next,
+            totalValue:
+              unitCost != null ? (parseFloat(unitCost) * next).toFixed(2) : stockRow.totalValue,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(inventoryStock.id, stockRow.id), eq(inventoryStock.tenantId, tenantId)));
+
+        await tx
+          .update(purchaseOrderItems)
+          .set({ quantityReceived: alreadyReceived - qty })
+          .where(and(eq(purchaseOrderItems.id, line.id), eq(purchaseOrderItems.tenantId, tenantId)));
+      }
+
+      const lines = await tx
+        .select()
+        .from(purchaseOrderItems)
+        .where(and(eq(purchaseOrderItems.poId, poId), eq(purchaseOrderItems.tenantId, tenantId)));
+      const allReceived = lines.every((l) => (l.quantityReceived ?? 0) >= (l.quantityOrdered ?? 0));
+      const anyReceived = lines.some((l) => (l.quantityReceived ?? 0) > 0);
+      let newStatus: string;
+      if (allReceived) newStatus = "completed";
+      else if (anyReceived) newStatus = "partially_received";
+      else if (po.status === "completed" || po.status === "partially_received") newStatus = "ordered";
+      else newStatus = po.status ?? "ordered";
+
+      const [updated] = await tx
+        .update(purchaseOrders)
+        .set({
+          status: newStatus as any,
+          actualDelivery: allReceived ? po.actualDelivery : null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(purchaseOrders.id, poId), eq(purchaseOrders.tenantId, tenantId)))
+        .returning();
       return updated;
     });
   }

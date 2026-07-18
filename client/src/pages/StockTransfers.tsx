@@ -606,7 +606,7 @@ export default function StockTransfers() {
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl">Create requisition</DialogTitle>
-            <DialogDescription className="text-sm">Request stock for your location from the central store or another care location.</DialogDescription>
+            <DialogDescription className="text-sm">Request stock for your location from the central warehouse or another store.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center text-sm">
@@ -749,7 +749,7 @@ export default function StockTransfers() {
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl">Send transfer</DialogTitle>
-            <DialogDescription className="text-sm">Send stock from central store to a care location. No requisition required.</DialogDescription>
+            <DialogDescription className="text-sm">Send stock from the central warehouse to a store. No requisition required.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center text-sm">

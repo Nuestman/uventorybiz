@@ -1254,9 +1254,9 @@ export default function Settings() {
                 </div>
                 <div className="flex items-center justify-between border rounded-md px-3 py-2">
                   <div className="space-y-0.5">
-                    <p className="text-sm font-medium">Multi-location</p>
+                    <p className="text-sm font-medium">Multi-store</p>
                     <p className="text-xs text-muted-foreground">
-                      Additional care locations, central store, and transfers.
+                      Additional store locations, warehouse stock, and transfers.
                     </p>
                   </div>
                   <Button variant="outline" size="sm" disabled>

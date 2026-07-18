@@ -19,6 +19,13 @@ export interface ReceivePurchaseOrderInput {
   locationId?: string;
 }
 
+/** Reverse previously received quantities */
+export interface ReversePurchaseOrderReceiveInput {
+  locationId: string;
+  items: Array<{ itemId: string; quantityReversed: number }>;
+  notes?: string;
+}
+
 /**
  * Purchase orders controller: create (with items), list, getById, getItems, receive, update, delete;
  * purchase-order-items: create, update, delete.
@@ -143,6 +150,31 @@ export function createPurchaseOrdersController(storage: IStorage) {
         return {
           ok: false,
           error: err instanceof Error ? err.message : "Failed to receive purchase order",
+        };
+      }
+    },
+
+    async reverseReceive(
+      id: string,
+      userId: string,
+      tenantId: string,
+      input: ReversePurchaseOrderReceiveInput
+    ): Promise<PurchaseOrderResult<PurchaseOrder> | { ok: false; error: string; code: "NOT_FOUND" }> {
+      try {
+        if (!input.locationId) return { ok: false, error: "locationId is required" };
+        if (!input.items?.length) return { ok: false, error: "items array is required" };
+        const updated = await storage.reversePurchaseOrderReceive(id, userId, tenantId, {
+          locationId: input.locationId,
+          items: input.items,
+          notes: input.notes,
+        });
+        if (!updated) return { ok: false, error: "Purchase order not found", code: "NOT_FOUND" };
+        return { ok: true, data: updated };
+      } catch (err) {
+        console.error("Purchase orders controller reverseReceive:", err);
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : "Failed to reverse purchase order receipt",
         };
       }
     },

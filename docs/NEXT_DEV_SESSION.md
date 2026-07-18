@@ -1,64 +1,58 @@
 # Next development session — resume guide
 
-**Release prepared:** 4.34.0 (July 1, 2026)  
-**Branch for staging:** `development` → push to `origin/development`  
-**Latest commit area:** Drizzle migration journal, SQL seed cleanup, portal marketing UX
+**Product:** uventorybiz `1.0.0`  
+**Repo:** https://github.com/Nuestman/uventorybiz  
+**Branch:** `main`  
+**Note:** Working tree has unreleased inventory UX after initial commit — see [CHANGELOG.md](./CHANGELOG.md) `[Unreleased]`.
 
 ---
 
-## Staging deploy checklist
+## Quick start (local)
 
-1. **Pull** latest `development` on the staging host.
-2. **Run migrations** (Neon DB) — see **[DRIZZLE_MIGRATIONS.md](./DRIZZLE_MIGRATIONS.md)**:
-   - **Existing DB (already on legacy SQL):** one-time `npm run db:drizzle-baseline -- --confirm` if not done yet.
-   - **Schema (new journal entries since last deploy):** `npm run db:drizzle-migrate` (applies `0002+` only if baselined).
-   - **Seeds (idempotent):** `npm run db:seed` — notification types + staff prefs + portal defaults.
-   - Set **`DATABASE_URL` in `.env` only** before running.
-3. **Env vars** — copy from `.env.example` (telehealth, SMTP for magic links, optional Twilio).
-4. **Restart** server after env + migrations.
-5. **Smoke test** (see below).
+1. Ensure `.env` has `DATABASE_URL` (Neon) — never commit `.env`.
+2. `npm install`
+3. `npm run db:drizzle-migrate` (if journal ahead of DB)
+4. `npm run db:seed` (idempotent notification / portal defaults)
+5. Optional demo data: `npm run db:seed:demo`
+6. `npm run dev` → http://localhost:17016 (port from env if customized)
 
 ---
 
-## Staging smoke tests (priority order)
+## Suggested next work
 
-| # | Area | What to verify |
-|---|------|----------------|
-| 1 | **Migrations** | App starts; `drizzle.__drizzle_migrations` count matches journal |
-| 2 | **Notifications** | `notification_types` populated; admin can receive alerts |
-| 3 | **Portal marketing** | `/portal` shows marketing page; signed-in user sees “Go to dashboard” |
-| 4 | **What's New** | Staff + portal users see dialog once per release; Got it dismisses until next version |
-| 5 | **Portal mobile nav** | Hamburger opens full sidebar sheet on phone |
-| 6 | **Portal notification prefs** | Profile → notification toggles save |
-| 7 | **Portal access request** | Employee email on file → request succeeds; admin queue works |
-| 8 | **Feedback widget** | Vertical tab on right edge opens dialog |
-
-Log defects as GitHub issues tagged `4.34.0-staging`.
+| Priority | Item |
+|----------|------|
+| 1 | Commit / PR the unreleased inventory + docs work (catalog, PO receive store, reverse, store locations UI) when ready |
+| 2 | Rename checkout folder `uventory` → `uventorybiz` after closing Cursor ([UVENTORYBIZ.md](./UVENTORYBIZ.md)) |
+| 3 | Soften remaining appointment “telehealth” UI copy / modality (telecare already unmounted) |
+| 4 | Align Transactions / Transaction History with new transaction types (incl. `return_to_supplier`) |
+| 5 | Optional: PO receive batch/lot/expiry per line |
+| 6 | Railway / production Neon cutover checklist |
 
 ---
 
-## What shipped in 4.34.0 (summary)
+## Smoke checklist
 
-| Area | Highlights |
-|------|------------|
-| **Drizzle** | Tracked journal (`drizzle/`), migrate/baseline/generate scripts |
-| **Seeds** | `migrations/seeds/` + `db:seed` / `db:seed:optional` |
-| **Archive** | Legacy `migrations/*.sql` → `_archive/legacy_upgrades/` |
-| **Env** | `.env` only for all DB tooling |
-| **Portal** | Marketing page CTAs for authenticated users; accent headings |
-| **Public** | Portal links → `/portal` (no forced sign-in modal) |
-
----
-
-## Known issues / watch on staging
-
-- **Missing notification prefs for new admins:** Re-run `npm run db:seed` after onboarding tenants.
-- **Fresh Neon branch:** Use `db:drizzle-migrate` then `db:seed` — do not run archived legacy SQL.
+| # | Area | Verify |
+|---|------|--------|
+| 1 | Auth | Staff login + location select |
+| 2 | Catalog | Create product at `/inventory-catalog` (no stock row yet) |
+| 3 | PO | Create PO from catalog; inline create supplier; receive into a **non-primary** store |
+| 4 | PO reverse | Reverse receipt from that store; stock and `quantityReceived` drop; status can return to `ordered` |
+| 5 | Inventory | Low/out row → Request stock / Create PO deep-link |
+| 6 | POS | Open shift, sell, close shift ([POS_GUIDE.md](./POS_GUIDE.md)) |
+| 7 | Portal | Orders attention badge; customer/supplier login |
+| 8 | Fleet / POC | Feature flags gate correctly |
+| 9 | `npm run check` | TypeScript clean |
+| 10 | What's New | Staff/portal see `1.0.0` curated notes |
 
 ---
 
-## After staging validation
+## References
 
-- Merge `development` → `main` when smoke tests pass.
-- Tag release `v4.34.0` if you use git tags for deploys.
-- Update curated release notes in `shared/curatedReleaseNotes.ts` if users should see a What's New dialog for 4.34.0 (staff-facing DB changes are usually omitted from portal copy).
+- [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md)
+- [INVENTORY_IMPLEMENTATION_SCAN.md](./INVENTORY_IMPLEMENTATION_SCAN.md)
+- [VERSION.md](./VERSION.md)
+- [CHANGELOG.md](./CHANGELOG.md)
+- [UVENTORYBIZ.md](./UVENTORYBIZ.md)
+- [DRIZZLE_MIGRATIONS.md](./DRIZZLE_MIGRATIONS.md)

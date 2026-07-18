@@ -3346,7 +3346,8 @@ function ReferralFacilitiesManagement() {
   );
 }
 
-function CareLocationsManagement() {
+/** Admin CRUD for fixed store sites (DB table `care_locations`, kind = fixed_site). */
+function StoreLocationsManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
@@ -3363,7 +3364,8 @@ function CareLocationsManagement() {
     address: "",
     contactPhone: "",
     contactEmail: "",
-    capacity: "",
+    operatingHours: "",
+    staffCount: "",
     isPrimary: false,
     status: "active",
   });
@@ -3373,7 +3375,7 @@ function CareLocationsManagement() {
     queryKey: ["/api/auth/current-session"],
   });
 
-  // Fetch locations
+  // Fetch store locations (fixed sites only — fleet units are managed separately)
   const { data: locations, isLoading } = useQuery<any[]>({
     queryKey: ["/api/care-locations", { includeInactive: true, locationKind: "fixed_site" }],
   });
@@ -3383,61 +3385,38 @@ function CareLocationsManagement() {
     mutationFn: async (enabled: boolean) => {
       const tenantId = tenantInfo?.tenant?.id;
       if (!tenantId) throw new Error("No tenant ID");
-      
-      console.log('=== TOGGLE MULTI-LOCATION ===');
-      console.log('Tenant ID:', tenantId);
-      console.log('Enabled:', enabled);
-      console.log('URL:', `/api/tenants/${tenantId}`);
-      console.log('Body:', { hasMultipleLocations: enabled });
-      
+
       const response = await apiRequest("PUT", `/api/tenants/${tenantId}`, {
         hasMultipleLocations: enabled,
       });
-      
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-      
-      // Get response text first
+
       const text = await response.text();
-      console.log('Toggle response text:', text);
-      
-      // Try to parse as JSON
       try {
-        const result = text ? JSON.parse(text) : { success: true };
-        console.log('Toggle response parsed:', result);
-        return result;
-      } catch (e) {
-        console.error('Failed to parse response:', e, 'Text:', text);
-        // If parse fails but status is 200, consider it success
-        if (response.ok) {
-          return { success: true };
-        }
-        throw new Error('Invalid response from server');
+        return text ? JSON.parse(text) : { success: true };
+      } catch {
+        if (response.ok) return { success: true };
+        throw new Error("Invalid response from server");
       }
     },
-    onSuccess: async (data, enabled) => {
-      console.log('Toggle success, invalidating queries and refetching...');
-      
-      // Invalidate and refetch session to get updated tenant info
+    onSuccess: async (_data, enabled) => {
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/current-session"] });
       await queryClient.refetchQueries({ queryKey: ["/api/auth/current-session"] });
-      
-      // Force a hard refresh of the page after a short delay to ensure state updates
+
       setTimeout(() => {
         window.location.reload();
       }, 1000);
-      
+
       toast({
-        title: enabled ? "Multi-Location Enabled" : "Multi-Location Disabled",
-        description: enabled 
-          ? "Users will select their working location at login. Page will refresh..." 
-          : "System will auto-select the primary location. Page will refresh...",
+        title: enabled ? "Multi-store enabled" : "Multi-store disabled",
+        description: enabled
+          ? "Users will select their working store at login. Page will refresh…"
+          : "The primary store will be used automatically. Page will refresh…",
       });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to update multi-location setting.",
+        description: error.message || "Failed to update multi-store setting.",
         variant: "destructive",
       });
     },
@@ -3452,8 +3431,8 @@ function CareLocationsManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/care-locations"] });
       toast({
-        title: "Location Created",
-        description: "Care location has been created successfully.",
+        title: "Store created",
+        description: "Store location has been created successfully.",
       });
       setCreateDialogOpen(false);
       resetForm();
@@ -3461,7 +3440,7 @@ function CareLocationsManagement() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create location.",
+        description: error.message || "Failed to create store location.",
         variant: "destructive",
       });
     },
@@ -3476,8 +3455,8 @@ function CareLocationsManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/care-locations"] });
       toast({
-        title: "Location Updated",
-        description: "Care location has been updated successfully.",
+        title: "Store updated",
+        description: "Store location has been updated successfully.",
       });
       setEditDialogOpen(false);
       setSelectedLocation(null);
@@ -3486,7 +3465,7 @@ function CareLocationsManagement() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to update location.",
+        description: error.message || "Failed to update store location.",
         variant: "destructive",
       });
     },
@@ -3501,8 +3480,8 @@ function CareLocationsManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/care-locations"] });
       toast({
-        title: "Location Deleted",
-        description: "Care location has been deleted successfully.",
+        title: "Store deleted",
+        description: "Store location has been deleted successfully.",
       });
       setDeleteDialogOpen(false);
       setSelectedLocation(null);
@@ -3510,7 +3489,7 @@ function CareLocationsManagement() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to delete location.",
+        description: error.message || "Failed to delete store location.",
         variant: "destructive",
       });
     },
@@ -3524,18 +3503,29 @@ function CareLocationsManagement() {
       address: "",
       contactPhone: "",
       contactEmail: "",
-      capacity: "",
+      operatingHours: "",
+      staffCount: "",
       isPrimary: false,
       status: "active",
     });
   };
 
+  const buildPayload = () => ({
+    locationName: formData.locationName.trim(),
+    locationCode: formData.locationCode.trim().toUpperCase(),
+    description: formData.description.trim() || null,
+    address: formData.address.trim() || null,
+    contactPhone: formData.contactPhone.trim() || null,
+    contactEmail: formData.contactEmail.trim() || null,
+    operatingHours: formData.operatingHours.trim() || null,
+    staffCount: formData.staffCount ? parseInt(formData.staffCount, 10) : 0,
+    isPrimary: formData.isPrimary,
+    status: formData.status,
+    locationKind: "fixed_site" as const,
+  });
+
   const handleCreate = () => {
-    const payload = {
-      ...formData,
-      capacity: formData.capacity ? parseInt(formData.capacity) : undefined,
-    };
-    createMutation.mutate(payload);
+    createMutation.mutate(buildPayload());
   };
 
   const handleEdit = (location: any) => {
@@ -3547,7 +3537,8 @@ function CareLocationsManagement() {
       address: location.address || "",
       contactPhone: location.contactPhone || "",
       contactEmail: location.contactEmail || "",
-      capacity: location.capacity?.toString() || "",
+      operatingHours: location.operatingHours || "",
+      staffCount: location.staffCount != null ? String(location.staffCount) : "",
       isPrimary: location.isPrimary,
       status: location.status,
     });
@@ -3556,12 +3547,7 @@ function CareLocationsManagement() {
 
   const handleUpdate = () => {
     if (!selectedLocation) return;
-    
-    const payload = {
-      ...formData,
-      capacity: formData.capacity ? parseInt(formData.capacity) : undefined,
-    };
-    updateMutation.mutate({ id: selectedLocation.id, data: payload });
+    updateMutation.mutate({ id: selectedLocation.id, data: buildPayload() });
   };
 
   const handleDelete = (location: any) => {
@@ -3605,17 +3591,17 @@ function CareLocationsManagement() {
 
   return (
     <div className="space-y-4">
-      {/* Multi-Location Feature Toggle */}
+      {/* Multi-store feature toggle */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Building2 className="h-5 w-5" />
-                Multi-Location System
+                Multi-store locations
               </CardTitle>
               <CardDescription className="mt-1">
-                Enable support for multiple emergency care sites and mini-clinics
+                Run inventory, POS, and orders across warehouses, branches, and retail stores
               </CardDescription>
             </div>
             <Switch
@@ -3631,14 +3617,14 @@ function CareLocationsManagement() {
               <div className="flex items-start gap-2 text-green-700 bg-green-50 p-3 rounded-md">
                 <Shield className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium">Multi-Location Mode Active</p>
+                  <p className="font-medium">Multi-store mode active</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Users will select their working location at login. All operations will be automatically tagged with their session location.
+                    Users select their working store at login. Stock, sales, and transfers are scoped to that store session.
                   </p>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                💡 <strong>Tip:</strong> Create additional locations below. Users will see a location selection modal after login.
+                Tip: Add branches below. Users will see a store selection modal after login.
               </p>
             </div>
           ) : (
@@ -3646,14 +3632,14 @@ function CareLocationsManagement() {
               <div className="flex items-start gap-2 text-blue-700 bg-blue-50 p-3 rounded-md">
                 <Building2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium">Single-Location Mode</p>
+                  <p className="font-medium">Single-store mode</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    The primary location will be automatically selected for all users. No location selection required at login.
+                    The primary store is used automatically for all users — no store selection at login.
                   </p>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                💡 <strong>Enable multi-location</strong> if you operate sites in different areas (e.g., Main Warehouse, Site Office, Processing Plant).
+                Enable multi-store if you operate more than one site (e.g. Main Warehouse, Downtown Branch, Plant Shop).
               </p>
             </div>
           )}
@@ -3710,7 +3696,7 @@ function CareLocationsManagement() {
         {tenantInfo?.tenant?.hasMultipleLocations && (
           <Button onClick={() => setCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            New Location
+            New store
           </Button>
         )}
         </div>
@@ -3729,11 +3715,12 @@ function CareLocationsManagement() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-16">ID</TableHead>
-                    <TableHead>Location Name</TableHead>
+                    <TableHead>Store name</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Address</TableHead>
                     <TableHead>Contact</TableHead>
-                    <TableHead>Capacity</TableHead>
+                    <TableHead>Hours</TableHead>
+                    <TableHead>Staff</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Primary</TableHead>
                     <TableHead className="w-32">Actions</TableHead>
@@ -3752,7 +3739,10 @@ function CareLocationsManagement() {
                           {location.contactEmail && <div className="text-sm text-gray-500">{location.contactEmail}</div>}
                         </div>
                       </TableCell>
-                      <TableCell>{location.capacity || '-'}</TableCell>
+                      <TableCell className="max-w-[10rem] truncate" title={location.operatingHours || undefined}>
+                        {location.operatingHours || '-'}
+                      </TableCell>
+                      <TableCell>{location.staffCount != null && location.staffCount > 0 ? location.staffCount : '-'}</TableCell>
                       <TableCell>
                         <Badge
                           variant={location.status === "active" ? "default" : "secondary"}
@@ -3909,15 +3899,14 @@ function CareLocationsManagement() {
 
                 <Separator />
 
-                <div className="flex items-center justify-between text-sm">
-                  {location.capacity && (
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      <span>Capacity: {location.capacity}</span>
-                    </div>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  {location.operatingHours && (
+                    <span className="truncate max-w-full" title={location.operatingHours}>
+                      Hours: {location.operatingHours}
+                    </span>
                   )}
-                  {location.staffCount !== undefined && location.staffCount > 0 && (
-                    <div className="flex items-center gap-1 text-muted-foreground">
+                  {location.staffCount != null && location.staffCount > 0 && (
+                    <div className="flex items-center gap-1">
                       <Users className="h-4 w-4" />
                       <span>{location.staffCount} staff</span>
                     </div>
@@ -3933,16 +3922,16 @@ function CareLocationsManagement() {
           <CardContent className="py-12">
             <div className="text-center">
               <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No locations found</h3>
+              <h3 className="mt-4 text-lg font-semibold">No stores found</h3>
               <p className="text-sm text-muted-foreground mt-2">
                 {searchQuery || statusFilter !== "all"
                   ? "Try adjusting your filters"
-                  : "Get started by creating your first care location"}
+                  : "Get started by creating your first store location"}
               </p>
-              {!searchQuery && statusFilter === "all" && (
+              {!searchQuery && statusFilter === "all" && tenantInfo?.tenant?.hasMultipleLocations && (
                 <Button className="mt-4" onClick={() => setCreateDialogOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Create Location
+                  Create store
                 </Button>
               )}
             </div>
@@ -3962,12 +3951,12 @@ function CareLocationsManagement() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editDialogOpen ? "Edit Care Location" : "Create Care Location"}
+              {editDialogOpen ? "Edit store location" : "Create store location"}
             </DialogTitle>
             <DialogDescription>
               {editDialogOpen
-                ? "Update the details of this care location"
-                : "Add a new emergency care site or mini-clinic"}
+                ? "Update this store, warehouse, or branch"
+                : "Add a warehouse, retail branch, or other business site"}
             </DialogDescription>
           </DialogHeader>
 
@@ -3975,11 +3964,11 @@ function CareLocationsManagement() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="locationName">
-                  Location Name <span className="text-destructive">*</span>
+                  Store name <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="locationName"
-                  placeholder="e.g., Main Distribution Center"
+                  placeholder="e.g., Main Warehouse"
                   value={formData.locationName}
                   onChange={(e) => setFormData({ ...formData, locationName: e.target.value })}
                 />
@@ -3987,7 +3976,7 @@ function CareLocationsManagement() {
 
               <div className="space-y-2">
                 <Label htmlFor="locationCode">
-                  Location Code <span className="text-destructive">*</span>
+                  Store code <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="locationCode"
@@ -4004,7 +3993,7 @@ function CareLocationsManagement() {
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                placeholder="Brief description of this location"
+                placeholder="Brief description of this store or site"
                 rows={3}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -4015,7 +4004,7 @@ function CareLocationsManagement() {
               <Label htmlFor="address">Address</Label>
               <Input
                 id="address"
-                placeholder="Physical address"
+                placeholder="Street address, city"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               />
@@ -4023,7 +4012,7 @@ function CareLocationsManagement() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="contactPhone">Contact Phone</Label>
+                <Label htmlFor="contactPhone">Contact phone</Label>
                 <Input
                   id="contactPhone"
                   placeholder="+1-555-0100"
@@ -4033,11 +4022,11 @@ function CareLocationsManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="contactEmail">Contact Email</Label>
+                <Label htmlFor="contactEmail">Contact email</Label>
                 <Input
                   id="contactEmail"
                   type="email"
-                  placeholder="clinic@example.com"
+                  placeholder="store@example.com"
                   value={formData.contactEmail}
                   onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
                 />
@@ -4046,17 +4035,29 @@ function CareLocationsManagement() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="capacity">Capacity (beds/stations)</Label>
+                <Label htmlFor="operatingHours">Operating hours</Label>
                 <Input
-                  id="capacity"
-                  type="number"
-                  min="0"
-                  placeholder="10"
-                  value={formData.capacity}
-                  onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+                  id="operatingHours"
+                  placeholder='e.g., Mon–Fri 08:00–17:00'
+                  value={formData.operatingHours}
+                  onChange={(e) => setFormData({ ...formData, operatingHours: e.target.value })}
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="staffCount">Staff count</Label>
+                <Input
+                  id="staffCount"
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={formData.staffCount}
+                  onChange={(e) => setFormData({ ...formData, staffCount: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
                 <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
@@ -4079,12 +4080,12 @@ function CareLocationsManagement() {
                 onCheckedChange={(checked) => setFormData({ ...formData, isPrimary: checked })}
               />
               <Label htmlFor="isPrimary" className="cursor-pointer">
-                Set as primary location
+                Set as primary store
               </Label>
             </div>
             {formData.isPrimary && (
               <p className="text-xs text-muted-foreground">
-                The primary location will be auto-selected for single-location mode and used as the default.
+                The primary store is used automatically in single-store mode and as the default elsewhere.
               </p>
             )}
           </div>
@@ -4126,7 +4127,7 @@ function CareLocationsManagement() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-destructive" />
-              Delete Care Location?
+              Delete store location?
             </AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete <strong>{selectedLocation?.locationName}</strong>?
@@ -4134,7 +4135,7 @@ function CareLocationsManagement() {
               {selectedLocation?.isPrimary && (
                 <div className="mt-2 p-2 bg-destructive/10 rounded-md">
                   <p className="text-destructive font-medium">
-                    Warning: This is the primary location. You must set another location as primary first.
+                    Warning: This is the primary store. Set another store as primary first.
                   </p>
                 </div>
               )}
@@ -4459,7 +4460,7 @@ export default function Admin() {
         </TabsContent>
 
         <TabsContent value="locations">
-          <CareLocationsManagement />
+          <StoreLocationsManagement />
           <ReferralFacilitiesManagement />
         </TabsContent>
 

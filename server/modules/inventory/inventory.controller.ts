@@ -235,6 +235,78 @@ export function createInventoryController(storage: IStorage) {
         return { ok: false, error: err instanceof Error ? err.message : "Failed to import inventory" };
       }
     },
+
+    async listCatalog(
+      tenantId: string,
+      filters?: { category?: string; status?: string }
+    ) {
+      try {
+        const data = await storage.listInventoryCatalog(tenantId, filters);
+        return { ok: true as const, data };
+      } catch (err) {
+        console.error("Inventory controller listCatalog:", err);
+        return {
+          ok: false as const,
+          error: err instanceof Error ? err.message : "Failed to fetch inventory catalog",
+        };
+      }
+    },
+
+    async getCatalogItem(id: string, tenantId: string) {
+      try {
+        const data = await storage.getInventoryCatalogItem(id, tenantId);
+        return { ok: true as const, data: data ?? null };
+      } catch (err) {
+        console.error("Inventory controller getCatalogItem:", err);
+        return {
+          ok: false as const,
+          error: err instanceof Error ? err.message : "Failed to fetch catalog item",
+        };
+      }
+    },
+
+    async createCatalogItem(tenantId: string, body: Parameters<IStorage["createInventoryCatalogItem"]>[0]) {
+      try {
+        const data = await storage.createInventoryCatalogItem(body, tenantId);
+        return { ok: true as const, data };
+      } catch (err) {
+        console.error("Inventory controller createCatalogItem:", err);
+        return {
+          ok: false as const,
+          error: err instanceof Error ? err.message : "Failed to create catalog item",
+        };
+      }
+    },
+
+    async updateCatalogItem(
+      id: string,
+      tenantId: string,
+      body: Partial<Parameters<IStorage["createInventoryCatalogItem"]>[0]>
+    ) {
+      try {
+        const data = await storage.updateInventoryCatalogItem(id, body, tenantId);
+        return { ok: true as const, data };
+      } catch (err) {
+        console.error("Inventory controller updateCatalogItem:", err);
+        return {
+          ok: false as const,
+          error: err instanceof Error ? err.message : "Failed to update catalog item",
+        };
+      }
+    },
+
+    async deleteCatalogItem(id: string, tenantId: string) {
+      try {
+        await storage.deleteInventoryCatalogItem(id, tenantId);
+        return { ok: true as const, data: { message: "Catalog item deleted successfully" } };
+      } catch (err) {
+        console.error("Inventory controller deleteCatalogItem:", err);
+        return {
+          ok: false as const,
+          error: err instanceof Error ? err.message : "Failed to delete catalog item",
+        };
+      }
+    },
   };
 }
 

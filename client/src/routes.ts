@@ -113,6 +113,7 @@ const PROTECTED_PATHS = [
   "/medical-visit",
   "/interop",
   "/inventory",
+  "/inventory-catalog",
   "/pos",
   "/sales",
   "/orders",

@@ -2,13 +2,16 @@
 
 > Multi-tenant business management with inventory and POS
 
-**Status:** transforming from MineAid HMS (clinical prune in progress). Package version `5.0.0-transform`.
+**Version:** `1.0.0`  
+**Repo:** https://github.com/Nuestman/uventorybiz
 
 ## Overview
 
-uventorybiz is a multi-tenant B2B platform for businesses: inventory, operations (appointments, incidents, duties, tickets), ShiftOver, fleet, POC laboratory, employee wellbeing, and (upcoming) POS.
+uventorybiz is a multi-tenant B2B platform: inventory, POS, operations (appointments, incidents, duties, tickets), ShiftOver, fleet, POC laboratory, employee wellbeing, and a customers/suppliers portal.
 
 Archived clinical/MineAid code lives under [`purged/`](purged/README.md) and is not part of the running app.
+
+See [`docs/UVENTORYBIZ.md`](docs/UVENTORYBIZ.md), [`docs/VERSION.md`](docs/VERSION.md), [`docs/CHANGELOG.md`](docs/CHANGELOG.md), and [`docs/INVENTORY_IMPLEMENTATION_SCAN.md`](docs/INVENTORY_IMPLEMENTATION_SCAN.md).
 
 ## Stack
 
@@ -27,6 +30,6 @@ npm run check    # tsc
 npm test         # vitest
 ```
 
-## Note on folder name
+## Workspace folder name
 
-Workspace folder may still be named `uventory` if the OS lock prevented rename; product name is **uventorybiz**.
+If this directory is still named `uventory`, close Cursor/terminals using it, then rename to **`uventorybiz`** and reopen. The product and npm package are already `uventorybiz`.

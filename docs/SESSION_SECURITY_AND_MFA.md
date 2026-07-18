@@ -36,7 +36,7 @@ Before a session ends, users see a modal countdown so they can extend or sign ou
 - The dialog appears when remaining time is within the configured lead window.
 - **Stay signed in** calls a keepalive endpoint and resets the idle timer.
 - Timing polls use read-only endpoints that do not extend the session (so idle countdown stays accurate).
-- **Polling is visibility-aware and lazy (4.35.2):** hidden tabs do not poll (a fresh check runs on tab return); visible tabs count down locally and resume 30s polls only as the warning window approaches. Before declaring expiry from stale timing, the client re-confirms with the server — covers sessions extended from another tab. Keeps idle open tabs from generating DB traffic (Neon scale-to-zero).
+- **Polling is visibility-aware and lazy:** hidden tabs do not poll (a fresh check runs on tab return); visible tabs count down locally and resume 30s polls only as the warning window approaches. Before declaring expiry from stale timing, the client re-confirms with the server — covers sessions extended from another tab. Keeps idle open tabs from generating DB traffic (Neon scale-to-zero).
 - **Circular countdown ring** depletes as time runs out (color shifts amber → orange → red in the final minute).
 - When the timer reaches zero, the modal switches to a **Session ended** state (blocking overlay, no dismiss) with **Sign in again**; server logout is called in the background.
 - **Stay signed in** resets the idle timer via keepalive and closes the warning.
@@ -106,7 +106,7 @@ Apply `migrations/20260531_session_security_and_mfa.sql` and `migrations/2026053
 
 | Version | Date | Notes |
 |---------|------|-------|
-| 1.3.0 | 2026-07-14 | Visibility-aware, lazy session-timing polling (4.35.2) |
+| 1.3.0 | 2026-07-14 | Visibility-aware, lazy session-timing polling |
 | 1.2.0 | 2026-05-31 | Circular countdown, blocking session-ended modal, MFA auto-submit UX |
 | 1.1.0 | 2026-05-31 | Configurable expiry warning + countdown dialog |
 | 1.0.0 | 2026-05-31 | Initial session policies + tenant MFA |

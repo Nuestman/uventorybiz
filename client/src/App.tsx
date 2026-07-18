@@ -60,6 +60,7 @@ import SuperAdminBilling from "@/pages/super-admin/SuperAdminBilling";
 import SuperAdminFeatureFlags from "@/pages/super-admin/SuperAdminFeatureFlags";
 import Profile from "@/pages/Profile";
 import Inventory from "@/pages/Inventory";
+import InventoryCatalog from "@/pages/InventoryCatalog";
 import StockTransfers from "@/pages/StockTransfers";
 import EquipmentTracking from "@/pages/EquipmentTracking";
 import PurchaseOrders from "@/pages/PurchaseOrders";
@@ -620,6 +621,7 @@ function Router() {
                   </Route>
                   <Route path="/audit-trail" component={AuditTrail} />
                   <Route path="/inventory" component={Inventory} />
+                  <Route path="/inventory-catalog" component={InventoryCatalog} />
                   <Route path="/pos">
                     {() => (
                       <RequireStaffAccess>

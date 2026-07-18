@@ -98,7 +98,7 @@ export function LocationSelectionModal() {
   const handleConfirm = (locationId: string) => {
     if (!locationId) return;
     selectLocation(
-      { locationId, reason: "Starting shift" },
+      { locationId, reason: "Selecting working store" },
       {
         onSuccess: () => {
           localStorage.setItem("lastWorkingLocation", locationId);

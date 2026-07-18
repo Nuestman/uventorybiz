@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +9,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertTriangle, Plus, Search, Package, Edit, Trash2, Eye, DollarSign, Truck, CheckCircle, Clock, MoreHorizontal } from 'lucide-react';
+import { AlertTriangle, Plus, Search, Package, Edit, Trash2, Eye, DollarSign, Truck, CheckCircle, Clock, MoreHorizontal, Undo2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import MobileNav from '@/components/MobileNav';
 import { useTenantSettings } from '@/hooks/useTenantSettings';
+import { useActiveLocation } from '@/hooks/useActiveLocation';
 import {
   INVENTORY_CATEGORY_FIELD_CONFIG,
   type InventoryFieldTemplate,
@@ -124,6 +125,7 @@ export default function PurchaseOrders() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { formatCurrency } = useTenantSettings();
+  const { isMultiLocation, activeLocation } = useActiveLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -131,18 +133,34 @@ export default function PurchaseOrders() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
+  const [isReverseModalOpen, setIsReverseModalOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [poItems, setPOItems] = useState<PurchaseOrderItem[]>([]);
+  const [receiveLocationId, setReceiveLocationId] = useState('');
+  const [receiveQuantities, setReceiveQuantities] = useState<Record<string, number>>({});
+  const [reverseLocationId, setReverseLocationId] = useState('');
+  const [reverseQuantities, setReverseQuantities] = useState<Record<string, number>>({});
+  const [reverseNotes, setReverseNotes] = useState('');
   const [newPO, setNewPO] = useState<NewPurchaseOrder>({
     supplierId: '',
     expectedDelivery: '',
     notes: '',
     items: []
   });
-  const [receiveQuantities, setReceiveQuantities] = useState<Record<string, number>>({});
+  const [prefillApplied, setPrefillApplied] = useState(false);
   const [editForm, setEditForm] = useState<{ supplierId: string; expectedDelivery: string; notes: string }>({ supplierId: '', expectedDelivery: '', notes: '' });
   const [isNewItemDialogOpen, setIsNewItemDialogOpen] = useState(false);
   const [newItemRowIndex, setNewItemRowIndex] = useState<number | null>(null);
+  const [isNewSupplierDialogOpen, setIsNewSupplierDialogOpen] = useState(false);
+  const [newSupplierTarget, setNewSupplierTarget] = useState<'create' | 'edit'>('create');
+  const [newSupplier, setNewSupplier] = useState({
+    name: '',
+    contactName: '',
+    email: '',
+    phone: '',
+    address: '',
+    notes: '',
+  });
   const [newItem, setNewItem] = useState<NewItemFormState>({
     itemCode: '',
     itemName: '',
@@ -164,21 +182,6 @@ export default function PurchaseOrders() {
     lastMaintenanceDate: '',
     nextMaintenanceDate: '',
     warrantyExpiry: ''
-  });
-
-  // Primary or first location (for creating new items from PO) – dedicated key to avoid cache collision with list
-  const { data: defaultLocation } = useQuery<{ id: string } | null>({
-    queryKey: ['/api/care-locations/primary'],
-    queryFn: async () => {
-      const primary = await fetch('/api/care-locations/primary');
-      if (primary.ok) {
-        const data = await primary.json();
-        return data && typeof data === 'object' && data.id ? data : null;
-      }
-      const listRes = await fetch('/api/care-locations');
-      const list = await listRes.json();
-      return Array.isArray(list) && list.length > 0 ? list[0] : null;
-    }
   });
 
   const { data: inventoryCategories = [] } = useQuery({
@@ -220,17 +223,97 @@ export default function PurchaseOrders() {
     }
   });
 
-  // Fetch inventory items for PO creation
-  const { data: inventoryItemsRaw } = useQuery({
-    queryKey: ['/api/inventory'],
+  // Stores for PO receive destination (fixed sites only)
+  const { data: storeLocations = [] } = useQuery<
+    Array<{ id: string; locationName: string; locationCode: string; isPrimary?: boolean; status?: string }>
+  >({
+    queryKey: ['/api/care-locations', { locationKind: 'fixed_site' }],
     queryFn: async () => {
-      const response = await fetch('/api/inventory');
-      if (!response.ok) throw new Error('Failed to fetch inventory');
+      const res = await fetch('/api/care-locations?locationKind=fixed_site', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch store locations');
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
+
+  const activeStores = useMemo(
+    () => storeLocations.filter((loc) => !loc.status || loc.status === 'active'),
+    [storeLocations]
+  );
+
+  const defaultReceiveLocationId = useMemo(() => {
+    if (activeLocation?.id && activeStores.some((s) => s.id === activeLocation.id)) {
+      return activeLocation.id;
+    }
+    const primary = activeStores.find((s) => s.isPrimary);
+    return primary?.id ?? activeStores[0]?.id ?? '';
+  }, [activeLocation?.id, activeStores]);
+
+  const effectiveReverseLocationId = reverseLocationId || defaultReceiveLocationId;
+
+  const { data: reverseLocationStock = [] } = useQuery<
+    Array<{ itemId?: string; item?: { id: string }; id: string; currentStock: number; itemCode?: string }>
+  >({
+    queryKey: ['/api/inventory', 'po-reverse', effectiveReverseLocationId],
+    queryFn: async () => {
+      if (!effectiveReverseLocationId) return [];
+      const res = await fetch(
+        `/api/inventory?locationId=${encodeURIComponent(effectiveReverseLocationId)}`,
+        { credentials: 'include' }
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: isReverseModalOpen && !!effectiveReverseLocationId,
+  });
+
+  const stockAtReverseLocation = (masterItemId: string) => {
+    const row = reverseLocationStock.find((inv) => {
+      const mid = inv.itemId ?? inv.item?.id;
+      return mid === masterItemId;
+    });
+    return row?.currentStock ?? 0;
+  };
+
+  // Master catalog for PO lines (not location stock — you can order items with no stock yet)
+  const { data: catalogItemsRaw } = useQuery({
+    queryKey: ['/api/inventory-catalog'],
+    queryFn: async () => {
+      const response = await fetch('/api/inventory-catalog', { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch product catalog');
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     }
   });
-  const inventoryItems = Array.isArray(inventoryItemsRaw) ? inventoryItemsRaw : [];
+  const catalogItems = Array.isArray(catalogItemsRaw) ? catalogItemsRaw : [];
+  const selectableCatalogItems = useMemo(
+    () =>
+      (catalogItems as Array<{ id: string; itemName: string; itemCode: string; status?: string }>).filter(
+        (i) => i.status !== 'discontinued' && i.status !== 'inactive'
+      ),
+    [catalogItems]
+  );
+
+  // Deep-link from Inventory low-stock actions: /purchase-orders?create=1&itemId=…&qty=…
+  useEffect(() => {
+    if (prefillApplied) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('create') !== '1') return;
+    const itemId = params.get('itemId')?.trim() || '';
+    const qtyRaw = parseInt(params.get('qty') || '1', 10);
+    const qty = Number.isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1;
+    setIsCreateModalOpen(true);
+    if (itemId) {
+      setNewPO((prev) => ({
+        ...prev,
+        items: [{ itemId, quantityOrdered: qty, unitCost: 0 }],
+        notes: prev.notes || 'Created from low/out-of-stock inventory action',
+      }));
+    }
+    setPrefillApplied(true);
+    window.history.replaceState({}, '', '/purchase-orders');
+  }, [prefillApplied]);
 
   const resetNewItemForm = () => {
     setNewItem({
@@ -286,40 +369,39 @@ export default function PurchaseOrders() {
     setNewItem(updated);
   };
 
-  // Create new master item (Inventory-style payload); adds to master + one stock row at primary location with 0 stock. Receival form later adds quantity/batch/expiry.
+  // Create catalog product only (no stock row). Receive on the PO later creates/updates stock at the receive store.
   const createNewItemMutation = useMutation({
     mutationFn: async (payload: { form: NewItemFormState; rowIndex: number | null }) => {
-      const locationId = defaultLocation?.id;
-      if (!locationId) throw new Error('No location available. Add a care location first.');
       const form = payload.form;
       const code = (form.itemCode || '').trim() || generateItemCode(form.category, form.itemName, inventoryCategories);
-      // Only master/catalog fields here; supplier, expiry, batch, lot, notes etc. are captured in the PO receiving form
-      const cleanedData: any = {
+      const cleanedData: Record<string, unknown> = {
         itemCode: code,
         itemName: (form.itemName || '').trim(),
         category: form.category,
-        currentStock: 0,
-        minimumStock: form.minimumStock ?? 0,
-        maximumStock: form.maximumStock ?? 0,
         unitOfMeasure: (form.unitOfMeasure || 'units').trim(),
         dosageForm: form.dosageForm || undefined,
         status: form.status || 'active',
         equipmentStatus: form.equipmentStatus || undefined,
-        locationId,
       };
-      const res = await fetch('/api/inventory', {
+      const res = await fetch('/api/inventory-catalog', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(cleanedData)
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Failed to create item');
+        const fieldErrors = err.errors && typeof err.errors === 'object'
+          ? Object.entries(err.errors as Record<string, string[]>)
+              .flatMap(([f, msgs]) => (Array.isArray(msgs) ? msgs.map((m) => `${f}: ${m}`) : [`${f}`]))
+              .join('; ')
+          : '';
+        throw new Error(fieldErrors || err.message || 'Failed to create item');
       }
       return res.json().then((data: any) => ({ data, rowIndex: payload.rowIndex }));
     },
     onSuccess: ({ data, rowIndex }: { data: any; rowIndex: number | null }) => {
-      const masterItemId = data.itemId ?? data.item?.id;
+      const masterItemId = data.id;
       if (masterItemId != null) {
         if (rowIndex != null && rowIndex >= 0) {
           updatePOItem(rowIndex, 'itemId', masterItemId);
@@ -327,12 +409,64 @@ export default function PurchaseOrders() {
           setNewPO((prev) => ({ ...prev, items: [...prev.items, { itemId: masterItemId, quantityOrdered: 1, unitCost: 0 }] }));
         }
       }
-      queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory-catalog'] });
       setIsNewItemDialogOpen(false);
       resetNewItemForm();
-      toast({ title: 'Item created', description: 'Added to master list and to this PO.' });
+      toast({ title: 'Item created', description: 'Added to product catalog and to this PO.' });
     },
     onError: (e: Error) => toast({ title: 'Error', description: e.message, variant: 'destructive' })
+  });
+
+  const resetNewSupplierForm = () => {
+    setNewSupplier({
+      name: '',
+      contactName: '',
+      email: '',
+      phone: '',
+      address: '',
+      notes: '',
+    });
+  };
+
+  const openNewSupplierDialog = (target: 'create' | 'edit') => {
+    setNewSupplierTarget(target);
+    resetNewSupplierForm();
+    setIsNewSupplierDialogOpen(true);
+  };
+
+  const createNewSupplierMutation = useMutation({
+    mutationFn: async (form: typeof newSupplier) => {
+      const res = await fetch('/api/suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: form.name.trim(),
+          contactName: form.contactName.trim() || null,
+          email: form.email.trim() || null,
+          phone: form.phone.trim() || null,
+          address: form.address.trim() || null,
+          notes: form.notes.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to create supplier');
+      }
+      return res.json() as Promise<{ id: string; name: string }>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/suppliers'] });
+      if (newSupplierTarget === 'edit') {
+        setEditForm((prev) => ({ ...prev, supplierId: data.id }));
+      } else {
+        setNewPO((prev) => ({ ...prev, supplierId: data.id }));
+      }
+      setIsNewSupplierDialogOpen(false);
+      resetNewSupplierForm();
+      toast({ title: 'Supplier created', description: `${data.name} added and selected on this PO.` });
+    },
+    onError: (e: Error) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
   });
 
   // Create purchase order mutation
@@ -384,25 +518,80 @@ export default function PurchaseOrders() {
     }
   });
 
-  // Receive items mutation (auto-adjusts stock)
+  // Receive items mutation (auto-adjusts stock at chosen store)
   const receiveItemsMutation = useMutation({
-    mutationFn: async ({ poId, items }: { poId: string; items: Array<{ itemId: string; quantityReceived: number }> }) => {
+    mutationFn: async ({
+      poId,
+      items,
+      locationId,
+    }: {
+      poId: string;
+      items: Array<{ itemId: string; quantityReceived: number }>;
+      locationId: string;
+    }) => {
       const response = await fetch(`/api/purchase-orders/${poId}/receive`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items })
+        credentials: 'include',
+        body: JSON.stringify({ items, locationId }),
       });
-      if (!response.ok) throw new Error('Failed to receive items');
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to receive items');
+      }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'] });
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+      const store = activeStores.find((s) => s.id === vars.locationId);
       toast({
-        title: "Success",
-        description: "Items received and stock updated automatically"
+        title: 'Success',
+        description: store
+          ? `Items received into ${store.locationCode} – ${store.locationName}`
+          : 'Items received and stock updated',
       });
-    }
+    },
+    onError: (e: Error) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
+
+  const reverseReceiveMutation = useMutation({
+    mutationFn: async ({
+      poId,
+      locationId,
+      items,
+      notes,
+    }: {
+      poId: string;
+      locationId: string;
+      items: Array<{ itemId: string; quantityReversed: number }>;
+      notes?: string;
+    }) => {
+      const response = await fetch(`/api/purchase-orders/${poId}/reverse-receive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ locationId, items, notes: notes || undefined }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to reverse receipt');
+      }
+      return response.json();
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory-transactions'] });
+      const store = activeStores.find((s) => s.id === vars.locationId);
+      toast({
+        title: 'Receipt reversed',
+        description: store
+          ? `Stock removed from ${store.locationCode} – ${store.locationName}`
+          : 'Received quantities reversed and stock updated',
+      });
+    },
+    onError: (e: Error) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
   });
 
   // Update purchase order mutation
@@ -554,6 +743,7 @@ export default function PurchaseOrders() {
   const handleOpenReceive = async (po: PurchaseOrder) => {
     setSelectedPO(po);
     setReceiveQuantities({});
+    setReceiveLocationId(defaultReceiveLocationId);
     try {
       const res = await fetch(`/api/purchase-orders/${po.id}/items`);
       const items = await res.json();
@@ -564,8 +754,32 @@ export default function PurchaseOrders() {
     }
   };
 
+  const handleOpenReverse = async (po: PurchaseOrder) => {
+    setSelectedPO(po);
+    setReverseQuantities({});
+    setReverseNotes('');
+    setReverseLocationId(defaultReceiveLocationId);
+    try {
+      const res = await fetch(`/api/purchase-orders/${po.id}/items`);
+      const items = await res.json();
+      setPOItems(Array.isArray(items) ? items : []);
+      setIsReverseModalOpen(true);
+    } catch {
+      toast({ title: 'Error', description: 'Failed to load PO items', variant: 'destructive' });
+    }
+  };
+
   const handleReceiveSubmit = () => {
     if (!selectedPO) return;
+    const locationId = receiveLocationId || defaultReceiveLocationId;
+    if (!locationId) {
+      toast({
+        title: 'Store required',
+        description: 'Choose which store to receive this stock into.',
+        variant: 'destructive',
+      });
+      return;
+    }
     const items = poItems
       .map((line) => ({ itemId: line.itemId, quantityReceived: receiveQuantities[line.id] ?? 0 }))
       .filter((x) => x.quantityReceived > 0);
@@ -574,30 +788,66 @@ export default function PurchaseOrders() {
       return;
     }
     receiveItemsMutation.mutate(
-      { poId: selectedPO.id, items },
+      { poId: selectedPO.id, items, locationId },
       {
         onSuccess: () => {
           setIsReceiveModalOpen(false);
           setSelectedPO(null);
           setReceiveQuantities({});
+          setReceiveLocationId('');
         }
       }
     );
   };
 
-  // Inventory list returns stock rows (one per location). Dedupe by master item id for PO dropdown; purchase_order_items.item_id = inventory_items.id.
-  const uniqueInventoryItems = useMemo(() => {
-    const list = (inventoryItems ?? []) as any[];
-    const byItemId = new Map<string, any>();
-    for (const inv of list) {
-      const masterId = inv.itemId ?? inv.item?.id ?? inv.id;
-      if (!byItemId.has(masterId)) byItemId.set(masterId, inv);
+  const handleReverseSubmit = () => {
+    if (!selectedPO) return;
+    const locationId = reverseLocationId || defaultReceiveLocationId;
+    if (!locationId) {
+      toast({
+        title: 'Store required',
+        description: 'Choose which store to reverse stock from.',
+        variant: 'destructive',
+      });
+      return;
     }
-    return Array.from(byItemId.values());
-  }, [inventoryItems]);
+    const items = poItems
+      .map((line) => ({
+        itemId: line.itemId,
+        quantityReversed: reverseQuantities[line.id] ?? 0,
+      }))
+      .filter((x) => x.quantityReversed > 0);
+    if (items.length === 0) {
+      toast({
+        title: 'No quantities',
+        description: 'Enter at least one quantity to reverse',
+        variant: 'destructive',
+      });
+      return;
+    }
+    reverseReceiveMutation.mutate(
+      {
+        poId: selectedPO.id,
+        locationId,
+        items,
+        notes: reverseNotes.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          setIsReverseModalOpen(false);
+          setSelectedPO(null);
+          setReverseQuantities({});
+          setReverseLocationId('');
+          setReverseNotes('');
+        },
+      }
+    );
+  };
 
-  const getItemName = (itemId: string) => (inventoryItems as any[]).find((i: any) => (i.itemId ?? i.id) === itemId)?.itemName ?? itemId;
-  const getItemCode = (itemId: string) => (inventoryItems as any[]).find((i: any) => (i.itemId ?? i.id) === itemId)?.itemCode ?? '';
+  const getItemName = (itemId: string) =>
+    (catalogItems as Array<{ id: string; itemName: string }>).find((i) => i.id === itemId)?.itemName ?? itemId;
+  const getItemCode = (itemId: string) =>
+    (catalogItems as Array<{ id: string; itemCode: string }>).find((i) => i.id === itemId)?.itemCode ?? '';
 
   const filteredPOs = purchaseOrders.filter(po => {
     const supplierName = (po.supplier ?? '').toLowerCase();
@@ -625,7 +875,7 @@ export default function PurchaseOrders() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Purchase Orders</h1>
           <p className="text-muted-foreground">
-            Manage inventory procurement and automatic stock adjustments
+            Order from the product catalog; receive into a store to update stock
           </p>
         </div>
         <Button onClick={() => setIsCreateModalOpen(true)} data-testid="button-create-po">
@@ -788,6 +1038,12 @@ export default function PurchaseOrders() {
                               Receive Goods
                             </DropdownMenuItem>
                           )}
+                          {['partially_received', 'completed'].includes(po.status) && (
+                            <DropdownMenuItem onClick={() => handleOpenReverse(po)} data-testid={`button-reverse-${po.id}`}>
+                              <Undo2 className="mr-2 h-4 w-4" />
+                              Reverse receipt
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem 
                             onClick={() => handleDeletePO(po.id)}
                             className="text-red-600"
@@ -826,8 +1082,20 @@ export default function PurchaseOrders() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="supplier">Supplier *</Label>
-                <Select value={newPO.supplierId} onValueChange={(v) => setNewPO(prev => ({ ...prev, supplierId: v }))} required>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="supplier">Supplier *</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7"
+                    onClick={() => openNewSupplierDialog('create')}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Create new supplier
+                  </Button>
+                </div>
+                <Select value={newPO.supplierId || undefined} onValueChange={(v) => setNewPO(prev => ({ ...prev, supplierId: v }))} required>
                   <SelectTrigger data-testid="input-supplier">
                     <SelectValue placeholder="Select supplier" />
                   </SelectTrigger>
@@ -896,14 +1164,11 @@ export default function PurchaseOrders() {
                         <SelectValue placeholder="Select item" />
                       </SelectTrigger>
                       <SelectContent>
-                        {uniqueInventoryItems.map((inv: any) => {
-                          const masterItemId = inv.itemId ?? inv.item?.id ?? inv.id;
-                          return (
-                            <SelectItem key={masterItemId} value={masterItemId}>
-                              {inv.itemName} ({inv.itemCode})
-                            </SelectItem>
-                          );
-                        })}
+                        {selectableCatalogItems.map((inv) => (
+                          <SelectItem key={inv.id} value={inv.id}>
+                            {inv.itemName} ({inv.itemCode})
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -967,13 +1232,120 @@ export default function PurchaseOrders() {
         </DialogContent>
       </Dialog>
 
+      {/* Create new supplier (for PO header) */}
+      <Dialog
+        open={isNewSupplierDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) resetNewSupplierForm();
+          setIsNewSupplierDialogOpen(open);
+        }}
+      >
+        <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Add supplier</DialogTitle>
+            <DialogDescription>
+              Creates a supplier and selects it on this purchase order.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!newSupplier.name.trim()) return;
+              createNewSupplierMutation.mutate(newSupplier);
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="po-new-supplier-name">Name *</Label>
+              <Input
+                id="po-new-supplier-name"
+                value={newSupplier.name}
+                onChange={(e) => setNewSupplier((p) => ({ ...p, name: e.target.value }))}
+                placeholder="Supplier name"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="po-new-supplier-contact">Contact name</Label>
+              <Input
+                id="po-new-supplier-contact"
+                value={newSupplier.contactName}
+                onChange={(e) => setNewSupplier((p) => ({ ...p, contactName: e.target.value }))}
+                placeholder="Contact person"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="po-new-supplier-email">Email</Label>
+                <Input
+                  id="po-new-supplier-email"
+                  type="email"
+                  value={newSupplier.email}
+                  onChange={(e) => setNewSupplier((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="orders@supplier.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="po-new-supplier-phone">Phone</Label>
+                <Input
+                  id="po-new-supplier-phone"
+                  value={newSupplier.phone}
+                  onChange={(e) => setNewSupplier((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="Phone number"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="po-new-supplier-address">Address</Label>
+              <Textarea
+                id="po-new-supplier-address"
+                rows={2}
+                value={newSupplier.address}
+                onChange={(e) => setNewSupplier((p) => ({ ...p, address: e.target.value }))}
+                placeholder="Address"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="po-new-supplier-notes">Notes</Label>
+              <Textarea
+                id="po-new-supplier-notes"
+                rows={2}
+                value={newSupplier.notes}
+                onChange={(e) => setNewSupplier((p) => ({ ...p, notes: e.target.value }))}
+                placeholder="Optional notes"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsNewSupplierDialogOpen(false);
+                  resetNewSupplierForm();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!newSupplier.name.trim() || createNewSupplierMutation.isPending}
+                style={{ backgroundColor: 'var(--uventorybiz-navy)', color: 'white' }}
+                className="hover:opacity-90"
+              >
+                {createNewSupplierMutation.isPending ? 'Creating…' : 'Create supplier'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Create new master item (for PO line) */}
       <Dialog open={isNewItemDialogOpen} onOpenChange={(open) => { if (!open) resetNewItemForm(); setIsNewItemDialogOpen(open); }}>
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle>Add item to master list</DialogTitle>
+            <DialogTitle>Add product to catalog</DialogTitle>
             <DialogDescription>
-              Add the item to the master list with 0 stock. Quantity received, batch, lot, expiry and other receipt details are captured when you receive the PO.
+              Adds a catalog product only (no stock yet). Quantity, batch, lot, and expiry are set when you receive the PO into a store.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -981,10 +1353,6 @@ export default function PurchaseOrders() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!newItem.itemName.trim()) return;
-              if (!defaultLocation?.id) {
-                toast({ title: 'Error', description: 'No location available. Add a care location first.', variant: 'destructive' });
-                return;
-              }
               createNewItemMutation.mutate({ form: newItem, rowIndex: newItemRowIndex ?? null });
             }}
           >
@@ -1044,7 +1412,7 @@ export default function PurchaseOrders() {
             </div>
             <DialogFooter className="flex-shrink-0 border-t pt-4">
               <Button type="button" variant="outline" onClick={() => { setIsNewItemDialogOpen(false); resetNewItemForm(); }}>Cancel</Button>
-              <Button type="submit" disabled={!newItem.itemName.trim() || createNewItemMutation.isPending || !defaultLocation?.id} style={{ backgroundColor: 'var(--uventorybiz-navy)', color: 'white' }} className="hover:opacity-90">
+              <Button type="submit" disabled={!newItem.itemName.trim() || createNewItemMutation.isPending} style={{ backgroundColor: 'var(--uventorybiz-navy)', color: 'white' }} className="hover:opacity-90">
                 {createNewItemMutation.isPending ? 'Creating…' : 'Create & use'}
               </Button>
             </DialogFooter>
@@ -1076,8 +1444,20 @@ export default function PurchaseOrders() {
             }} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Supplier *</Label>
-                  <Select value={editForm.supplierId} onValueChange={(v) => setEditForm(prev => ({ ...prev, supplierId: v }))} required>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>Supplier *</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7"
+                      onClick={() => openNewSupplierDialog('edit')}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Create new supplier
+                    </Button>
+                  </div>
+                  <Select value={editForm.supplierId || undefined} onValueChange={(v) => setEditForm(prev => ({ ...prev, supplierId: v }))} required>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -1177,16 +1557,54 @@ export default function PurchaseOrders() {
       </Dialog>
 
       {/* Receive Goods Modal */}
-      <Dialog open={isReceiveModalOpen} onOpenChange={setIsReceiveModalOpen}>
+      <Dialog
+        open={isReceiveModalOpen}
+        onOpenChange={(open) => {
+          setIsReceiveModalOpen(open);
+          if (!open) {
+            setReceiveQuantities({});
+            setReceiveLocationId('');
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Receive Goods</DialogTitle>
             <DialogDescription>
-              {selectedPO?.poNumber} – Enter quantities received at central store. Stock and transactions will be updated.
+              {selectedPO?.poNumber} – Enter quantities received
+              {isMultiLocation || activeStores.length > 1
+                ? ' and choose which store gets the stock.'
+                : '. Stock will update at your store.'}
             </DialogDescription>
           </DialogHeader>
           {selectedPO && (
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="receive-location">
+                  Receive into store {(isMultiLocation || activeStores.length > 1) && <span className="text-destructive">*</span>}
+                </Label>
+                <Select
+                  value={receiveLocationId || defaultReceiveLocationId || undefined}
+                  onValueChange={setReceiveLocationId}
+                >
+                  <SelectTrigger id="receive-location" data-testid="select-receive-location">
+                    <SelectValue placeholder="Select store" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeStores.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.locationCode} – {loc.locationName}
+                        {loc.isPrimary ? ' (Primary)' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!isMultiLocation && activeStores.length <= 1 && (
+                  <p className="text-xs text-muted-foreground">
+                    Single-store mode: stock is received into your primary store.
+                  </p>
+                )}
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1226,16 +1644,154 @@ export default function PurchaseOrders() {
                 </TableBody>
               </Table>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => { setIsReceiveModalOpen(false); setReceiveQuantities({}); }}>
+                <Button type="button" variant="outline" onClick={() => { setIsReceiveModalOpen(false); setReceiveQuantities({}); setReceiveLocationId(''); }}>
                   Cancel
                 </Button>
                 <Button
                   onClick={handleReceiveSubmit}
-                  disabled={receiveItemsMutation.isPending || Object.values(receiveQuantities).every((q) => !q || q === 0)}
+                  disabled={
+                    receiveItemsMutation.isPending ||
+                    Object.values(receiveQuantities).every((q) => !q || q === 0) ||
+                    !(receiveLocationId || defaultReceiveLocationId)
+                  }
                   style={{ backgroundColor: 'var(--uventorybiz-navy)', color: 'white' }}
                   className="hover:opacity-90"
                 >
                   {receiveItemsMutation.isPending ? 'Receiving...' : 'Receive'}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Reverse Receipt Modal */}
+      <Dialog
+        open={isReverseModalOpen}
+        onOpenChange={(open) => {
+          setIsReverseModalOpen(open);
+          if (!open) {
+            setReverseQuantities({});
+            setReverseLocationId('');
+            setReverseNotes('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[640px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Reverse receipt</DialogTitle>
+            <DialogDescription>
+              {selectedPO?.poNumber} – Remove previously received stock from a store and reduce received quantities on this PO.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPO && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reverse-location">
+                  Reverse from store <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={reverseLocationId || defaultReceiveLocationId || undefined}
+                  onValueChange={setReverseLocationId}
+                >
+                  <SelectTrigger id="reverse-location">
+                    <SelectValue placeholder="Select store" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeStores.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.locationCode} – {loc.locationName}
+                        {loc.isPrimary ? ' (Primary)' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Choose the store that originally received this stock. Reversal fails if that store no longer has enough quantity.
+                </p>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead>Received</TableHead>
+                    <TableHead>Stock here</TableHead>
+                    <TableHead>Qty to reverse</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {poItems
+                    .filter((line) => (line.quantityReceived ?? 0) > 0)
+                    .map((line) => {
+                      const received = line.quantityReceived ?? 0;
+                      const onHand = stockAtReverseLocation(line.itemId);
+                      const maxReverse = Math.min(received, onHand);
+                      return (
+                        <TableRow key={line.id}>
+                          <TableCell>
+                            <div className="font-medium">{line.itemName ?? getItemName(line.itemId)}</div>
+                            <div className="text-sm text-muted-foreground">{line.itemCode ?? getItemCode(line.itemId)}</div>
+                          </TableCell>
+                          <TableCell>{received}</TableCell>
+                          <TableCell>{onHand}</TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={maxReverse}
+                              placeholder={`Max ${maxReverse}`}
+                              value={reverseQuantities[line.id] ?? ''}
+                              disabled={maxReverse <= 0}
+                              onChange={(e) => {
+                                const v = e.target.value ? parseInt(e.target.value, 10) : 0;
+                                setReverseQuantities((prev) => ({
+                                  ...prev,
+                                  [line.id]: isNaN(v) ? 0 : Math.max(0, Math.min(maxReverse, v)),
+                                }));
+                              }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                </TableBody>
+              </Table>
+              {poItems.every((l) => (l.quantityReceived ?? 0) <= 0) && (
+                <p className="text-sm text-muted-foreground">No received quantities to reverse on this PO.</p>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="reverse-notes">Notes (optional)</Label>
+                <Textarea
+                  id="reverse-notes"
+                  rows={2}
+                  value={reverseNotes}
+                  onChange={(e) => setReverseNotes(e.target.value)}
+                  placeholder="Reason for reversing this receipt"
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsReverseModalOpen(false);
+                    setReverseQuantities({});
+                    setReverseLocationId('');
+                    setReverseNotes('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleReverseSubmit}
+                  disabled={
+                    reverseReceiveMutation.isPending ||
+                    Object.values(reverseQuantities).every((q) => !q || q === 0) ||
+                    !(reverseLocationId || defaultReceiveLocationId)
+                  }
+                  variant="destructive"
+                >
+                  {reverseReceiveMutation.isPending ? 'Reversing…' : 'Reverse receipt'}
                 </Button>
               </DialogFooter>
             </div>

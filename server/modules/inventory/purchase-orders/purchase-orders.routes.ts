@@ -23,7 +23,17 @@ const receivePurchaseOrderBodySchema = z.object({
     itemId: z.string().min(1),
     quantityReceived: z.number().int().nonnegative(),
   })).optional().default([]),
-  locationId: z.string().optional(),
+  /** Store that receives the stock (required for multi-store; defaults to primary if omitted). */
+  locationId: z.string().uuid().optional(),
+});
+
+const reversePurchaseOrderReceiveBodySchema = z.object({
+  locationId: z.string().uuid(),
+  items: z.array(z.object({
+    itemId: z.string().min(1),
+    quantityReversed: z.number().int().positive(),
+  })).min(1),
+  notes: z.string().max(2000).optional().nullable(),
 });
 
 // Cost columns are varchar (decimal precision), but clients send numbers.
@@ -58,7 +68,8 @@ async function resolveTenantId(req: any): Promise<string | null> {
 /**
  * Create the purchase orders router. Mount at /api.
  * Routes: GET/POST/PUT/DELETE /purchase-orders, GET /purchase-orders/:poId/items,
- * POST /purchase-orders/:id/receive, POST/PUT/DELETE /purchase-order-items
+ * POST /purchase-orders/:id/receive, POST /purchase-orders/:id/reverse-receive,
+ * POST/PUT/DELETE /purchase-order-items
  */
 export function createPurchaseOrdersRouter(deps: PurchaseOrdersRoutesDeps): Router {
   const { authMiddleware } = deps;
@@ -109,10 +120,33 @@ export function createPurchaseOrdersRouter(deps: PurchaseOrdersRoutesDeps): Rout
     const result = await controller.receive(req.params.id, userId, tenantId, { items, locationId });
     if (!result.ok) {
       if (result.code === "NOT_FOUND") return sendError(res, 404, result.error);
-      return sendError(res, 500, result.error);
+      return sendError(res, 400, result.error);
     }
     res.json(result.data);
   });
+
+  router.post(
+    "/purchase-orders/:id/reverse-receive",
+    authMiddleware,
+    validateBody(reversePurchaseOrderReceiveBodySchema),
+    async (req: any, res) => {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) return sendError(res, 400, "User has no tenant association");
+      const userId = req.user?.id;
+      if (!userId) return sendError(res, 400, "User ID required");
+      const body = req.body as z.infer<typeof reversePurchaseOrderReceiveBodySchema>;
+      const result = await controller.reverseReceive(req.params.id, userId, tenantId, {
+        locationId: body.locationId,
+        items: body.items,
+        notes: body.notes ?? undefined,
+      });
+      if (!result.ok) {
+        if (result.code === "NOT_FOUND") return sendError(res, 404, result.error);
+        return sendError(res, 400, result.error);
+      }
+      res.json(result.data);
+    }
+  );
 
   router.get("/purchase-orders/:id", authMiddleware, async (req: any, res) => {
     const tenantId = req.user?.tenantId;

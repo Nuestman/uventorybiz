@@ -11,7 +11,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertTriangle, Plus, Search, Package, Edit, Trash2, Eye, Hospital, Download, Upload, Ambulance } from 'lucide-react';
+import { AlertTriangle, Plus, Search, Package, Edit, Trash2, Eye, Hospital, Download, Upload, Ambulance, BookOpen, MoreHorizontal, ClipboardList, ShoppingCart } from 'lucide-react';
+import { Link, useLocation } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
 import MobileNav from '@/components/MobileNav';
 import { useActiveLocation } from '@/hooks/useActiveLocation';
@@ -157,6 +158,14 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
   ]);
   const [requisitionNotes, setRequisitionNotes] = useState('');
   const [selectedFulfillingLocationId, setSelectedFulfillingLocationId] = useState<string>('');
+  /** When opening Request stock from a low-stock row — match against supplying-location inventory by master id / code. */
+  const [requisitionPrefill, setRequisitionPrefill] = useState<{
+    masterItemId: string;
+    itemCode: string;
+    itemName: string;
+    suggestedQty: number;
+  } | null>(null);
+  const [, setLocation] = useLocation();
   const [inventoryPage, setInventoryPage] = useState(1);
   const PAGE_SIZE = 20;
   const [newItem, setNewItem] = useState<NewInventoryItem>({
@@ -366,7 +375,7 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
   });
 
   // Fetch inventory for requisition modal: only items at selected supplying (fulfilling) location
-  const { data: requisitionInventory = [] } = useQuery<MedicalInventory[]>({
+  const { data: requisitionInventory = [], isFetched: requisitionInventoryFetched } = useQuery<MedicalInventory[]>({
     queryKey: ['/api/inventory', 'requisition', selectedFulfillingLocationId],
     queryFn: async () => {
       if (!selectedFulfillingLocationId) return [];
@@ -492,6 +501,8 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
       setIsRequestModalOpen(false);
       setNewRequisitionItems([{ itemId: '', requestedQuantity: 0 }]);
       setRequisitionNotes('');
+      setRequisitionPrefill(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/stock-requisitions'] });
       toast({
         title: 'Requisition submitted',
         description: 'Your stock request has been sent for processing.',
@@ -883,14 +894,104 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
   };
 
   const getStockStatus = (item: MedicalInventory) => {
+    if (item.currentStock <= 0) {
+      return { label: 'Out of Stock', variant: 'destructive' as const, needsReorder: true };
+    }
     if (item.currentStock <= item.minimumStock) {
-      return { label: 'Low Stock', variant: 'destructive' as const };
+      return { label: 'Low Stock', variant: 'destructive' as const, needsReorder: true };
     }
     if (item.maximumStock && item.currentStock >= item.maximumStock) {
-      return { label: 'Overstock', variant: 'secondary' as const };
+      return { label: 'Overstock', variant: 'secondary' as const, needsReorder: false };
     }
-    return { label: 'In Stock', variant: 'default' as const };
+    return { label: 'In Stock', variant: 'default' as const, needsReorder: false };
   };
+
+  const suggestedReorderQty = (item: MedicalInventory) => {
+    const min = item.minimumStock ?? 0;
+    const max = item.maximumStock ?? 0;
+    if (max > item.currentStock) return Math.max(1, max - item.currentStock);
+    if (min > item.currentStock) return Math.max(1, min - item.currentStock);
+    return Math.max(1, min || 1);
+  };
+
+  const openRequestStockForItem = (item: MedicalInventory) => {
+    const masterItemId = item.itemId ?? (item as any).item?.id;
+    if (!masterItemId) {
+      toast({
+        title: 'Missing catalog link',
+        description: 'This stock row has no master product id.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!activeLocation?.id) {
+      toast({
+        title: 'Location required',
+        description: 'Select your working location before requesting stock.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setRequisitionPrefill({
+      masterItemId,
+      itemCode: item.itemCode,
+      itemName: item.itemName,
+      suggestedQty: suggestedReorderQty(item),
+    });
+    setSelectedFulfillingLocationId(primaryLocation?.id && primaryLocation.id !== activeLocation.id
+      ? primaryLocation.id
+      : '');
+    setNewRequisitionItems([{ itemId: '', requestedQuantity: 0 }]);
+    setRequisitionNotes(`Reorder: ${item.itemName} (${item.itemCode}) — low/out of stock at ${activeLocation.name || activeLocation.code}`);
+    setIsRequestModalOpen(true);
+  };
+
+  const openCreatePoForItem = (item: MedicalInventory) => {
+    const masterItemId = item.itemId ?? (item as any).item?.id;
+    if (!masterItemId) {
+      toast({
+        title: 'Missing catalog link',
+        description: 'This stock row has no master product id.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const qty = suggestedReorderQty(item);
+    setLocation(`/purchase-orders?create=1&itemId=${encodeURIComponent(masterItemId)}&qty=${qty}`);
+  };
+
+  // After supplying location inventory loads, apply prefill from a low-stock row action
+  useEffect(() => {
+    if (!isRequestModalOpen || !requisitionPrefill || !selectedFulfillingLocationId) return;
+    const match = requisitionInventory.find((inv) => {
+      const mid = (inv as any).itemId ?? (inv as any).item?.id;
+      return mid === requisitionPrefill.masterItemId || inv.itemCode === requisitionPrefill.itemCode;
+    });
+    if (match) {
+      const qty = Math.min(
+        Math.max(1, requisitionPrefill.suggestedQty),
+        Math.max(0, match.currentStock ?? 0),
+      );
+      setNewRequisitionItems([
+        {
+          itemId: match.id,
+          requestedQuantity: qty > 0 ? qty : 1,
+          unitOfMeasure: match.unitOfMeasure,
+        },
+      ]);
+    } else {
+      setNewRequisitionItems([{ itemId: '', requestedQuantity: 0 }]);
+    }
+  }, [isRequestModalOpen, requisitionPrefill, selectedFulfillingLocationId, requisitionInventory]);
+
+  const prefillMissingAtSupplier =
+    !!requisitionPrefill &&
+    !!selectedFulfillingLocationId &&
+    requisitionInventoryFetched &&
+    !requisitionInventory.some((inv) => {
+      const mid = (inv as any).itemId ?? (inv as any).item?.id;
+      return mid === requisitionPrefill.masterItemId || inv.itemCode === requisitionPrefill.itemCode;
+    });
 
   // Filter inventory items based on search
   const filteredInventory = inventory.filter(item =>
@@ -924,12 +1025,18 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
           <p className="text-muted-foreground text-sm min-[1080px]:text-base">
             {ambulanceInventoryMode
               ? 'Consumables and equipment on fleet units only. Use stock transfers to move items to or from fixed sites.'
-              : 'Manage products, equipment, and stock levels'}
+              : 'Stock levels at the current store. Manage the master product list separately.'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 min-[1080px]:justify-end">
           {!ambulanceInventoryMode && (
             <>
+              <Button variant="outline" asChild>
+                <Link href="/inventory-catalog">
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  Product catalog
+                </Link>
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline">
@@ -1034,7 +1141,7 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
                     ) : (
                       <>
                         <Hospital className="h-4 w-4 text-blue-600" />
-                        Care Location
+                        Store
                       </>
                     )}
                   </Label>
@@ -1108,7 +1215,7 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
                       if (!primary) {
                         return (
                           <p className="text-xs text-gray-500">
-                            No care locations configured yet. Items will not have a location until at least one is created.
+                            No store locations configured yet. Items will not have a location until at least one is created.
                           </p>
                         );
                       }
@@ -1453,6 +1560,9 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
             <Button
               variant="outline"
               onClick={() => {
+                setRequisitionPrefill(null);
+                setNewRequisitionItems([{ itemId: '', requestedQuantity: 0 }]);
+                setRequisitionNotes('');
                 setSelectedFulfillingLocationId(primaryLocation?.id ?? '');
                 setIsRequestModalOpen(true);
               }}
@@ -1741,7 +1851,34 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          {stockStatus.needsReorder && !ambulanceInventoryMode && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 px-2 text-amber-700 border-amber-300 hover:bg-amber-50"
+                                  title="Reorder actions"
+                                >
+                                  <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {isMultiLocation && (
+                                  <DropdownMenuItem onClick={() => openRequestStockForItem(item)}>
+                                    <ClipboardList className="mr-2 h-4 w-4" />
+                                    Request stock
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => openCreatePoForItem(item)}>
+                                  <ShoppingCart className="mr-2 h-4 w-4" />
+                                  Create purchase order
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1799,15 +1936,57 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
         </CardContent>
       </Card>
       {/* Stock Requisition Modal */}
-      <Dialog open={isRequestModalOpen} onOpenChange={(open) => { setIsRequestModalOpen(open); if (open) setSelectedFulfillingLocationId(primaryLocation?.id ?? ''); }}>
+      <Dialog
+        open={isRequestModalOpen}
+        onOpenChange={(open) => {
+          setIsRequestModalOpen(open);
+          if (open) {
+            if (!selectedFulfillingLocationId) {
+              setSelectedFulfillingLocationId(
+                primaryLocation?.id && primaryLocation.id !== activeLocation?.id
+                  ? primaryLocation.id
+                  : '',
+              );
+            }
+          } else {
+            setRequisitionPrefill(null);
+            setNewRequisitionItems([{ itemId: '', requestedQuantity: 0 }]);
+            setRequisitionNotes('');
+            setSelectedFulfillingLocationId('');
+          }
+        }}
+      >
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl">Request stock</DialogTitle>
             <DialogDescription className="text-sm">
-              Request stock for your location from the central store or another care location.
+              {requisitionPrefill
+                ? `Prefilled for ${requisitionPrefill.itemName} (${requisitionPrefill.itemCode}). Choose a supplying store that has this product in stock.`
+                : 'Request stock for your location from the central warehouse or another store.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {prefillMissingAtSupplier && requisitionPrefill && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <p>
+                  <strong>{requisitionPrefill.itemName}</strong> isn’t stocked at the selected supplying store.
+                  Pick another location, or{' '}
+                  <button
+                    type="button"
+                    className="underline font-medium"
+                    onClick={() => {
+                      setIsRequestModalOpen(false);
+                      setLocation(
+                        `/purchase-orders?create=1&itemId=${encodeURIComponent(requisitionPrefill.masterItemId)}&qty=${requisitionPrefill.suggestedQty}`,
+                      );
+                    }}
+                  >
+                    create a purchase order
+                  </button>{' '}
+                  instead.
+                </p>
+              </div>
+            )}
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center text-sm">
               <span className="text-muted-foreground">From (your location):</span>
               <span className="font-medium">
@@ -1819,7 +1998,9 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
                 value={selectedFulfillingLocationId}
                 onValueChange={(value) => {
                   setSelectedFulfillingLocationId(value);
-                  setNewRequisitionItems([{ itemId: '', requestedQuantity: 0 }]);
+                  if (!requisitionPrefill) {
+                    setNewRequisitionItems([{ itemId: '', requestedQuantity: 0 }]);
+                  }
                 }}
               >
                 <SelectTrigger className="w-full sm:w-[220px]">

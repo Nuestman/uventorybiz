@@ -1,16 +1,29 @@
 ## Inventory Transfers & Clinic Issues - Redesign Plan
 
-**Status:** In progress (inventory system overhaul)  
-**Context:** MineAid HMS core inventory exists but has no real production data, so we can safely align schemas to match the desired flows.  
-**Scope:** Central store ⇄ clinics/FAPs transfers, requisitions, returns, and clinic-level issues to clients, all based on existing `careLocations`. Procurement (suppliers, purchase orders) is part of the same overhaul.
+**Status:** Core flows done for uventorybiz; enhancements remaining (see scan)  
+**Product context:** uventorybiz (B2B inventory + POS). Clinical visit dispensing and MineAid-specific UX below are historical; live app uses stores (`care_locations` / Store Locations admin), catalog, POs, transfers, and POS.  
+**Scope (live):** Multi-store transfers, requisitions, returns-via-transfer, procurement (suppliers, purchase orders).  
+**Scan:** [INVENTORY_IMPLEMENTATION_SCAN.md](./INVENTORY_IMPLEMENTATION_SCAN.md) · **Changelog:** [CHANGELOG.md](./CHANGELOG.md) `[Unreleased]`
 
-### Implemented so far (Feb 2026)
+### Implemented so far
 
-- **Master + per-location stock model** in place: `inventory_items` (master catalog) and `inventory_stock` (per item per location). No drop/recreate; migrations are additive and backfilled.
-- **Master item attributes**: `image_url` and `barcode` on `inventory_items`; removed from `inventory_stock` (backfilled).
-- **Suppliers**: `suppliers` table, tenant-scoped CRUD, Suppliers page at `/suppliers` under Inventory Management.
-- **Purchase orders (one procurement flow)**: POs linked to suppliers; item dropdown uses master `inventory_items.id`; create-new-item-from-PO adds to master (minimal form); PO receiving creates `inventory_transactions` with `transaction_type = 'receipt_external'`, `document_type = 'purchase_order'`, and updates stock. Enhanced receiving form (batch, lot, expiry per line) planned.
-- **Receive flows**: PO receive and transfer receive use correct item + location; no template inheritance.
+**Baseline (schema + transfers — earlier):**
+
+- **Master + per-location stock model**: `inventory_items` + `inventory_stock`. Migrations additive.
+- **Master item attributes**: `image_url`, `barcode` on `inventory_items`.
+- **Suppliers**: tenant-scoped CRUD, `/suppliers`.
+- **Purchase orders**: lines use master `inventory_items.id`; receive → `receipt_external` + stock update.
+- **Receive flows**: PO and transfer receive resolve stock by item + location.
+
+**uventorybiz inventory UX (Jul 2026 — unreleased vs initial commit):**
+
+- **Product catalog page** `/inventory-catalog` — CRUD on master items only; API `/api/inventory-catalog`.
+- **PO lines from catalog** (not location stock); create-new-item from PO posts to catalog (no stock until receive).
+- **Inline create supplier** on PO create/edit.
+- **PO receive into any store** — UI store picker + `locationId` (active fixed-site only; not fleet).
+- **PO reverse after receipt** — `POST /api/purchase-orders/:id/reverse-receive`; stock `return_to_supplier`; status rollback toward `ordered`.
+- **Low/out-of-stock actions** on Inventory → Request stock (requisition) or Create PO (deep-link).
+- **Store Locations** admin wording (business stores; DB table still `care_locations`).
 
 **Visit & Incident ↔ Inventory integration (implemented):**
 
@@ -28,7 +41,7 @@
   - **GET `/api/inventory`**: When the client does not send `locationId`, the API resolves the **session’s active location** (or, for single-location tenants, the primary care location) and **filters items by that location**. So at a satellite clinic (e.g. ODDFAP), the items dropdown/picker shows only that store’s stock. Clients may still pass `locationId` (e.g. visit/incident location) to scope explicitly.
 - **Backend enforcement (§9)** and **strict GET filters** for transactions ensure visit vs incident and patient/location scoping with no cross-talk.
 
-**Planned (later phases):** Enhanced PO receiving UI (batch, lot, expiry per line); align Transactions/Transaction History UI with new transaction types and show direction + counterparty location; optional partial receive and returns UX; Phase 4 testing. See [INVENTORY_IMPLEMENTATION_SCAN.md](./INVENTORY_IMPLEMENTATION_SCAN.md) for current implementation scan.
+**Still planned:** Enhanced PO receiving (batch, lot, expiry per line); Transactions UI alignment (new types, direction, counterparty); optional partial transfer receive and dedicated returns UX; Phase 4 testing.
 
 ---
 

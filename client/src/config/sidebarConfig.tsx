@@ -292,7 +292,13 @@ const inventoryGroup: SidebarGroupConfig = {
       title: "Inventory Products",
       url: "/inventory",
       icon: Package,
-      description: "Inventory & supplies",
+      description: "Stock by store location",
+    },
+    {
+      title: "Product Catalog",
+      url: "/inventory-catalog",
+      icon: BookOpen,
+      description: "Master product list (no quantities)",
     },
     {
       title: "Point of Sale",

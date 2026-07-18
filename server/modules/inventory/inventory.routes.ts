@@ -4,7 +4,7 @@ import { z } from "zod";
 import { storage } from "../../storage";
 import { validateBody } from "../../shared/validation";
 import { sendError } from "../../shared/errors";
-import { insertInventoryItemSchema } from "@shared/schema";
+import { insertInventoryItemSchema, createInventoryCatalogItemSchema, updateInventoryCatalogItemSchema } from "@shared/schema";
 import { createInventoryController } from "./inventory.controller";
 
 // Stock-level fields live on inventory_stock, not inventory_items, so they are not part of
@@ -191,6 +191,67 @@ export function createInventoryRouter(deps: InventoryRoutesDeps): Router {
       res.json(result.data);
     }
   );
+
+  // Master catalog (inventory_items only — no location stock)
+  router.get("/inventory-catalog", authMiddleware, async (req: any, res) => {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return sendError(res, 400, "User has no tenant association");
+    const result = await controller.listCatalog(tenantId, {
+      category: req.query.category as string | undefined,
+      status: req.query.status as string | undefined,
+    });
+    if (!result.ok) return sendError(res, 500, result.error);
+    res.json(result.data);
+  });
+
+  router.get("/inventory-catalog/:id", authMiddleware, async (req: any, res) => {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return sendError(res, 400, "User has no tenant association");
+    const result = await controller.getCatalogItem(req.params.id, tenantId);
+    if (!result.ok) return sendError(res, 500, result.error);
+    if (result.data === null) return sendError(res, 404, "Catalog item not found");
+    res.json(result.data);
+  });
+
+  router.post(
+    "/inventory-catalog",
+    authMiddleware,
+    validateBody(createInventoryCatalogItemSchema),
+    async (req: any, res) => {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) return sendError(res, 400, "User has no tenant association");
+      const result = await controller.createCatalogItem(tenantId, req.body);
+      if (!result.ok) return sendError(res, 400, result.error);
+      res.status(201).json(result.data);
+    }
+  );
+
+  router.put(
+    "/inventory-catalog/:id",
+    authMiddleware,
+    validateBody(updateInventoryCatalogItemSchema),
+    async (req: any, res) => {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) return sendError(res, 400, "User has no tenant association");
+      const result = await controller.updateCatalogItem(req.params.id, tenantId, req.body);
+      if (!result.ok) {
+        if (result.error === "Catalog item not found") return sendError(res, 404, result.error);
+        return sendError(res, 400, result.error);
+      }
+      res.json(result.data);
+    }
+  );
+
+  router.delete("/inventory-catalog/:id", authMiddleware, async (req: any, res) => {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return sendError(res, 400, "User has no tenant association");
+    const result = await controller.deleteCatalogItem(req.params.id, tenantId);
+    if (!result.ok) {
+      if (result.error === "Catalog item not found") return sendError(res, 404, result.error);
+      return sendError(res, 400, result.error);
+    }
+    res.json(result.data);
+  });
 
   router.get("/inventory", authMiddleware, async (req: any, res) => {
     const tenantId = req.user?.tenantId;

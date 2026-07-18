@@ -22,7 +22,7 @@ export function createCareLocationsController(storage: IStorage) {
         console.error("Care locations controller list:", err);
         return {
           ok: false,
-          error: err instanceof Error ? err.message : "Failed to fetch care locations",
+          error: err instanceof Error ? err.message : "Failed to fetch store locations",
         };
       }
     },
@@ -49,13 +49,13 @@ export function createCareLocationsController(storage: IStorage) {
     ): Promise<CareLocationResult<CareLocation> | { ok: false; error: string; code: "NOT_FOUND" }> {
       try {
         const data = await storage.getCareLocation(id, tenantId);
-        if (!data) return { ok: false, error: "Care location not found", code: "NOT_FOUND" };
+        if (!data) return { ok: false, error: "Store location not found", code: "NOT_FOUND" };
         return { ok: true, data };
       } catch (err) {
         console.error("Care locations controller getById:", err);
         return {
           ok: false,
-          error: err instanceof Error ? err.message : "Failed to fetch care location",
+          error: err instanceof Error ? err.message : "Failed to fetch store location",
         };
       }
     },
@@ -89,7 +89,7 @@ export function createCareLocationsController(storage: IStorage) {
           { location },
           {
             performedBy: performedByLabel,
-            action: "Created care location",
+            action: "Created store location",
             locationName: location.locationName,
             locationCode: location.locationCode,
           }
@@ -99,7 +99,7 @@ export function createCareLocationsController(storage: IStorage) {
         console.error("Care locations controller create:", err);
         return {
           ok: false,
-          error: err instanceof Error ? err.message : "Failed to create care location",
+          error: err instanceof Error ? err.message : "Failed to create store location",
         };
       }
     },
@@ -116,11 +116,11 @@ export function createCareLocationsController(storage: IStorage) {
     > {
       try {
         const original = await storage.getCareLocation(id, tenantId);
-        if (!original) return { ok: false, error: "Care location not found", code: "NOT_FOUND" };
+        if (!original) return { ok: false, error: "Store location not found", code: "NOT_FOUND" };
         if (original.locationKind === "ambulance") {
           return {
             ok: false,
-            error: "Ambulances are updated under Operations → Ambulances.",
+            error: "Fleet units are updated under Operations → Fleet.",
             code: "IS_AMBULANCE",
           };
         }
@@ -144,14 +144,14 @@ export function createCareLocationsController(storage: IStorage) {
           tenantId,
           original,
           { updatedLocation: updated },
-          { performedBy: performedByLabel, action: "Updated care location", locationName: updated.locationName }
+          { performedBy: performedByLabel, action: "Updated store location", locationName: updated.locationName }
         );
         return { ok: true, data: updated };
       } catch (err) {
         console.error("Care locations controller update:", err);
         return {
           ok: false,
-          error: err instanceof Error ? err.message : "Failed to update care location",
+          error: err instanceof Error ? err.message : "Failed to update store location",
         };
       }
     },
@@ -176,18 +176,18 @@ export function createCareLocationsController(storage: IStorage) {
     > {
       try {
         const original = await storage.getCareLocation(id, tenantId);
-        if (!original) return { ok: false, error: "Care location not found", code: "NOT_FOUND" };
+        if (!original) return { ok: false, error: "Store location not found", code: "NOT_FOUND" };
         if (original.locationKind === "ambulance") {
           return {
             ok: false,
-            error: "Delete ambulances from Operations → Ambulances (after zeroing on-board stock).",
+            error: "Delete fleet units from Operations → Fleet (after zeroing on-board stock).",
             code: "IS_AMBULANCE",
           };
         }
         if (original.isPrimary) {
           return {
             ok: false,
-            error: "Cannot delete primary location. Set another location as primary first.",
+            error: "Cannot delete the primary store. Set another store as primary first.",
             code: "CANNOT_DELETE_PRIMARY",
           };
         }
@@ -198,7 +198,7 @@ export function createCareLocationsController(storage: IStorage) {
         if (fixedSites.length === 1) {
           return {
             ok: false,
-            error: "Cannot delete the only active fixed care site.",
+            error: "Cannot delete the only active store location.",
             code: "CANNOT_DELETE_ONLY",
           };
         }
@@ -211,14 +211,14 @@ export function createCareLocationsController(storage: IStorage) {
           tenantId,
           original,
           null,
-          { performedBy: performedByLabel, action: "Deleted care location", locationName: original.locationName }
+          { performedBy: performedByLabel, action: "Deleted store location", locationName: original.locationName }
         );
-        return { ok: true, data: { message: "Care location deleted successfully" } };
+        return { ok: true, data: { message: "Store location deleted successfully" } };
       } catch (err) {
         console.error("Care locations controller delete:", err);
         return {
           ok: false,
-          error: err instanceof Error ? err.message : "Failed to delete care location",
+          error: err instanceof Error ? err.message : "Failed to delete store location",
         };
       }
     },

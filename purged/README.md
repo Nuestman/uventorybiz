@@ -36,3 +36,11 @@ re-wire imports/routes.
 ## Cleanup
 
 After uventorybiz is stable, this directory may be deleted entirely.
+
+## Restoring telecare / LiveKit
+
+Telecare code under `purged/` depended on LiveKit / Teams packages and env vars that were removed from the live app (`package.json`, `server/config/env.ts`). To revive telecare, restore those dependencies and env keys from git history before re-wiring routes.
+
+## Docs archived from `docs/` (Jul 2026)
+
+MineAid pitch decks, encounter/FHIR/telehealth/patient/clinical pharmacy plans, and the pre-uventorybiz changelog were moved here. Live product docs start at `docs/UVENTORYBIZ.md`. Inventory status: `docs/INVENTORY_IMPLEMENTATION_SCAN.md`.

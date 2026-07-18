@@ -371,30 +371,30 @@ export const careLocations = pgTable("care_locations", {
   longitude: varchar("longitude"),
   
   // Location status
-  isPrimary: boolean("is_primary").default(false), // One primary location per tenant
+  isPrimary: boolean("is_primary").default(false), // One primary store per tenant
   status: varchar("status").notNull().default("active"), // active, inactive, maintenance
 
-  // Kind: fixed clinic/post vs ambulance (ambulance rows share inventory_stock by location_id)
+  // Kind: fixed store/warehouse vs mobile fleet unit (fleet rows share inventory_stock by location_id)
   locationKind: careLocationKindEnum("location_kind").notNull().default("fixed_site"),
-  /** Post/clinic where this ambulance is normally stationed; null = pooled / multi-post coverage (see coverageNotes). */
+  /** Home store where a fleet unit is normally stationed; null = pooled / multi-site coverage. */
   stationedAtLocationId: varchar("stationed_at_location_id").references((): any => careLocations.id, {
     onDelete: "set null",
   }),
   callSign: varchar("call_sign", { length: 128 }),
   registrationPlate: varchar("registration_plate", { length: 64 }),
   fleetNumber: varchar("fleet_number", { length: 128 }),
-  /** When not tied to a single post (e.g. surface unit covering all sites). */
+  /** When not tied to a single store (e.g. mobile unit covering all sites). */
   coverageNotes: text("coverage_notes"),
   ambulanceOpsStatus: ambulanceOpsStatusEnum("ambulance_ops_status"),
   
-  // Capacity and operations
-  capacity: integer("capacity"), // Number of beds/treatment stations
-  operatingHours: text("operating_hours"), // JSON: {"monday": "08:00-17:00", ...}
+  // Operations (business stores)
+  capacity: integer("capacity"), // Optional floor/storage capacity units
+  operatingHours: text("operating_hours"), // Free text or JSON hours
   staffCount: integer("staff_count").default(0),
   
-  // Capabilities
-  capabilities: text("capabilities"), // JSON: ["emergency", "testing", "surgery"]
-  equipmentList: text("equipment_list"), // JSON: Available equipment
+  // Optional structured extras (legacy JSON; prefer dedicated columns when adding features)
+  capabilities: text("capabilities"),
+  equipmentList: text("equipment_list"),
   
   // Metadata
   createdAt: timestamp("created_at").defaultNow(),
@@ -3373,6 +3373,34 @@ export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit
   createdAt: true,
   updatedAt: true,
 });
+
+/** POST /api/inventory-catalog — itemCode optional (server auto-generates from category prefix). */
+export const createInventoryCatalogItemSchema = insertInventoryItemSchema
+  .omit({ itemCode: true })
+  .extend({
+    itemName: z.string().min(1).max(500),
+    category: z.string().min(1).max(128),
+    unitOfMeasure: z.string().min(1).max(64).default("units"),
+    itemCode: z
+      .string()
+      .max(64)
+      .optional()
+      .nullable()
+      .transform((v) => {
+        const t = (v ?? "").trim();
+        return t.length > 0 ? t : undefined;
+      }),
+    description: z.string().max(4000).optional().nullable(),
+    brand: z.string().max(200).optional().nullable(),
+    model: z.string().max(200).optional().nullable(),
+    barcode: z.string().max(128).optional().nullable(),
+    supplier: z.string().max(200).optional().nullable(),
+    supplierContact: z.string().max(200).optional().nullable(),
+    dosageForm: z.string().max(128).optional().nullable(),
+    status: z.enum(["active", "inactive", "discontinued"]).optional(),
+  });
+
+export const updateInventoryCatalogItemSchema = createInventoryCatalogItemSchema.partial();
 
 export const insertInventoryStockSchema = createInsertSchema(inventoryStock).omit({
   id: true,
