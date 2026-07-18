@@ -1,0 +1,184 @@
+# MineAid - Comprehensive Overview
+
+## What is MineAid?
+
+MineAid is a comprehensive healthcare management system designed for mining operations. It provides a complete digital solution for managing medical services, incident reporting, inventory management, and safety compliance in mining environments.
+
+## Mission & Vision
+
+### Mission
+To provide a robust, user-friendly digital platform that enhances medical response capabilities and safety management in mining operations through comprehensive incident tracking, inventory management, and reporting systems.
+
+### Vision
+To become the leading digital solution for medical post management in mining industries, ensuring rapid response times, accurate record-keeping, and improved safety outcomes.
+
+## Core Purpose
+
+MineAid serves as a centralized digital platform that:
+
+1. **Streamlines Medical Operations**: Digitalizes medical consultations and incident reporting processes
+2. **Manages Medical Inventory**: Tracks medications, consumables, and equipment
+3. **Ensures Safety Compliance**: Maintains detailed records for regulatory requirements
+4. **Improves Response Times**: Quick access to patient information and medical supplies
+5. **Provides Analytics**: Data-driven insights for safety improvements
+
+## Target Users
+
+### Primary Users
+- **Medical Personnel**: Nurses, paramedics, and medical responders
+- **Safety Officers**: Mining safety coordinators and supervisors
+- **Administrators**: System managers and data administrators
+
+### Secondary Users
+- **Mining Management**: Site managers and operational supervisors
+- **Regulatory Bodies**: Safety inspectors and compliance officers
+- **Medical Staff**: External medical professionals and consultants
+
+## Key Features
+
+### 1. **Medical & Incident Management**
+- **Medical Consultations**: Comprehensive patient assessment forms for general health issues
+- **Incident Reporting**: Detailed incident documentation with file attachments for work-related injuries
+- **Patient History**: Complete medical history tracking
+- **Photo Documentation**: Visual evidence capture for injuries and incidents
+- **Real-time Updates**: Live status updates and notifications
+
+### 2. **Drug & Alcohol Testing**
+- **Safety Testing**: Comprehensive drug and alcohol screening
+- **Result Tracking**: Digital record keeping of test results
+- **Compliance Reporting**: Automated compliance reporting
+- **Trend Analysis**: Historical data analysis for safety trends
+
+### 3. **Inventory Management**
+- **Medical Supplies Tracking**: Complete inventory of medications, consumables, and equipment
+- **Expiry Monitoring**: Automated alerts for expiring items
+- **Stock Levels**: Real-time stock level monitoring
+- **Reordering System**: Automated reorder notifications
+- **Category Management**: Organized inventory by type and priority
+
+### 4. **Equipment Management**
+- **Medical Equipment Tracking**: Complete inventory of medical devices and equipment
+- **Maintenance Scheduling**: Automated maintenance schedules and reminders
+- **Equipment Calibration**: Tracking of calibration requirements and dates
+- **Equipment History**: Complete maintenance and usage history
+- **Fault Reporting**: Equipment malfunction and repair tracking
+
+### 5. **Appointment Scheduling**
+- **Periodic Medicals**: Scheduling and tracking of regular health assessments
+- **Medical Reviews**: Follow-up appointment scheduling
+- **Specialist Consultations**: External medical appointment coordination
+- **Calendar Management**: Integrated scheduling system
+- **Reminder System**: Automated appointment reminders
+
+### 6. **HSE Information Management**
+- **Safety Guidelines**: Digital access to safety procedures and guidelines
+- **Health Information**: Educational materials on health topics
+- **Emergency Procedures**: Quick access to emergency protocols
+- **Regulatory Updates**: Latest safety and health regulation information
+- **Best Practices**: Industry best practices and standards
+
+### 7. **Reporting & Analytics**
+- **Incident Reports**: Comprehensive incident analysis and reporting
+- **Safety Statistics**: Monthly and daily safety metrics
+- **Trend Analysis**: Historical data analysis for safety improvements
+- **Export Capabilities**: Data export for external analysis
+- **Custom Reports**: Flexible reporting options
+
+### 8. **User Management**
+- **Role-Based Access**: Different access levels for different user types
+- **User Authentication**: Secure login and session management
+- **Profile Management**: User profile and preference settings
+- **Activity Logging**: Complete audit trail of user actions
+
+### 9. **Database Management**
+- **Data Backup**: Automated database backup systems
+- **Data Import/Export**: CSV data import and export capabilities
+- **Data Integrity**: Robust data validation and integrity checks
+- **Recovery Systems**: Data recovery and restoration capabilities
+
+### 10. **System Administration**
+- **User Administration**: User approval, role management, and access control
+- **System Settings**: Configurable system parameters
+- **Maintenance Mode**: System maintenance capabilities
+- **Error Handling**: Comprehensive error logging and handling
+## Core Modules
+
+### 1. **Authentication Module**
+- User registration and login
+- Password reset functionality
+- Session management
+- Role-based access control
+
+### 2. **Medical Module**
+- Patient assessment forms
+- Medical history tracking
+- File attachment support
+- Status tracking and updates
+
+### 3. **Incident Management Module**
+- Incident reporting forms
+- Photo documentation
+- Investigation tracking
+- Follow-up management
+
+### 4. **Injury Management Module**
+- Injury progress tracking
+- Rehabilitation monitoring
+- Return to work planning
+- Modified duty assignments
+
+### 5. **Inventory Module**
+- Medical supplies management
+- Stock level monitoring
+- Expiry date tracking
+- Reorder notifications
+
+### 6. **Equipment Management Module**
+- Medical equipment inventory
+- Maintenance scheduling
+- Calibration tracking
+- Equipment history
+
+### 7. **Appointment Module**
+- Scheduling system
+- Calendar management
+- Reminder notifications
+- Appointment tracking
+
+### 8. **HSE Information Module**
+- Safety guidelines
+- Health information
+- Emergency procedures
+- Regulatory updates
+
+### 9. **Reporting Module**
+- Safety statistics
+- Incident analysis
+- Trend reporting
+- Data export capabilities
+
+### 10. **Admin Module**
+- User management
+- System configuration
+- Data administration
+- Security controls
+
+## Safety & Compliance Features
+
+### 1. **Regulatory Compliance**
+- **Mining Safety Standards**: Compliance with mining safety regulations
+- **Medical Record Keeping**: Proper medical documentation standards
+- **Data Protection**: Secure handling of sensitive medical information
+- **Audit Trails**: Complete audit trails for regulatory inspections
+
+### 2. **Emergency Response**
+- **Rapid Access**: Quick access to patient information and medical supplies
+- **Emergency Protocols**: Standardized emergency response procedures
+- **Communication**: Integrated notification systems
+- **Documentation**: Comprehensive incident documentation
+
+### 3. **Quality Assurance**
+- **Data Validation**: Input validation and data integrity checks
+- **Error Prevention**: User-friendly interfaces to prevent errors
+- **Backup Systems**: Robust data backup and recovery
+- **Performance Monitoring**: System performance and reliability monitoring

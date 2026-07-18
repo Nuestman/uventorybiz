@@ -1,0 +1,237 @@
+<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column: Recent Patients & Quick Actions */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Recent Patients Section */}
+            <Card>
+              <CardHeader className="border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-semibold text-gray-900">Recent Patients</CardTitle>
+                  <Link href="/patients">
+                    <Button variant="link" className="text-mineaid-navy hover:text-mineaid-navy/80">
+                      View All
+                    </Button>
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                {patientsLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+                          <div className="w-12 h-12 bg-gray-300 rounded-full"></div>
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                            <div className="h-3 bg-gray-300 rounded w-1/2"></div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : recentPatients && recentPatients.length > 0 ? (
+                  <div className="space-y-4">
+                    {recentPatients.slice(0, 3).map((patientData: any) => {
+                      const { patient, employee, company } = patientData;
+                      return (
+                        <div key={patient.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors space-y-3 sm:space-y-0">
+                          <div className="flex items-center space-x-4 min-w-0 flex-1">
+                            <div className="w-12 h-12 bg-mineaid-navy rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+                              {employee?.firstName?.charAt(0) || 'U'}{employee?.lastName?.charAt(0) || 'N'}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-900 truncate">
+                                {employee?.firstName || 'Unknown'} {employee?.lastName || 'Employee'}
+                              </p>
+                              <p className="text-sm text-mineaid-gray truncate">Employee: {employee?.employeeNumber || 'N/A'}</p>
+                              <p className="text-sm text-mineaid-gray truncate">
+                                Department: {employee?.department || 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 flex-shrink-0">
+                            <Badge 
+                              variant={patient.status === 'active' ? 'default' : 
+                                     patient.status === 'cleared' ? 'secondary' : 'destructive'}
+                              className="w-fit"
+                            >
+                              {patient.status}
+                            </Badge>
+                            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+                              <Link href={`/medical-visit?patientId=${patient.id}`}>
+                                <Button size="sm" className="bg-mineaid-navy hover:bg-mineaid-navy/90 w-full sm:w-auto">
+                                  New Visit
+                                </Button>
+                              </Link>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => setNewAppointmentModalOpen(true)}
+                                className="w-full sm:w-auto"
+                              >
+                                Schedule
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-mineaid-gray">No patients registered yet</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+
+          </div>
+
+          {/* Right Column: Appointments & Quick Actions */}
+          <div className="space-y-8">
+            {/* Today's Appointments */}
+            <Card>
+              <CardHeader className="border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-semibold text-gray-900">Today's Appointments</CardTitle>
+                  <Button 
+                    variant="link" 
+                    className="text-mineaid-navy hover:text-mineaid-navy/80"
+                    onClick={() => setNewAppointmentModalOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    New
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                {appointmentsLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg">
+                          <div className="w-8 h-8 bg-gray-300 rounded-lg"></div>
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 bg-gray-300 rounded w-2/3"></div>
+                            <div className="h-3 bg-gray-300 rounded w-1/2"></div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : todayAppointments && todayAppointments.length > 0 ? (
+                  <div className="space-y-4">
+                    {todayAppointments.map((appointment: any) => (
+                      <AppointmentCard key={appointment.id} appointment={appointment} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-mineaid-gray">No appointments scheduled for today</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader className="border-b border-gray-200">
+                <CardTitle className="text-lg font-semibold text-gray-900">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="flex flex-col gap-3">
+                  <Link href="/medical-visit">
+                    <Button className="w-full justify-between bg-mineaid-navy hover:bg-mineaid-navy/90 text-white">
+                      <div className="flex items-center space-x-3">
+                        <Stethoscope className="h-4 w-4" />
+                        <span className="font-medium">New Medical Visit</span>
+                      </div>
+                    </Button>
+                  </Link>
+
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-between"
+                    onClick={() => setNewAppointmentModalOpen(true)}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Calendar className="h-4 w-4 text-mineaid-navy" />
+                      <span className="font-medium text-gray-900">Schedule Appointment</span>
+                    </div>
+                  </Button>
+
+                  <Link href="/incidents">
+                    <Button variant="outline" className="w-full justify-between">
+                      <div className="flex items-center space-x-3">
+                        <AlertTriangle className="h-4 w-4 text-red-500" />
+                        <span className="font-medium text-gray-900">Incident Management</span>
+                      </div>
+                    </Button>
+                  </Link>
+
+                  <Link href="/records">
+                    <Button variant="outline" className="w-full justify-between">
+                      <div className="flex items-center space-x-3">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="font-medium text-gray-900">Medical Records</span>
+                      </div>
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* System Status */}
+            <Card>
+              <CardHeader className="border-b border-gray-200">
+                <CardTitle className="text-lg font-semibold text-gray-900">System Status</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-gray-900">Version</span>
+                    </div>
+                    <span className="text-sm text-blue-600 font-mono">v2.2.0</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-gray-900">Database</span>
+                    </div>
+                    <span className="text-sm text-green-600">Operational</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-gray-900">API Services</span>
+                    </div>
+                    <span className="text-sm text-green-600">Operational</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-gray-900">File Storage</span>
+                    </div>
+                    <span className="text-sm text-green-600">Object Storage</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-gray-900">Security</span>
+                    </div>
+                    <span className="text-sm text-green-600">Secure</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </main>

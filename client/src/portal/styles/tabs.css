@@ -1,0 +1,30 @@
+/*
+ * Portal tab list pattern (tabs-list-custom / tab-trigger-custom).
+ */
+
+.portal-root .tabs-list-custom .tab-trigger-custom,
+.telecare-session .tabs-list-custom .tab-trigger-custom {
+  font-size: 0.75rem !important;
+  line-height: 1.25rem !important;
+  letter-spacing: 0 !important;
+  padding: 0.5rem 0.5rem !important;
+}
+
+@media (min-width: 640px) {
+  .portal-root .tabs-list-custom .tab-trigger-custom,
+  .telecare-session .tabs-list-custom .tab-trigger-custom {
+    font-size: 0.875rem !important;
+    padding: 0.5rem 0.75rem !important;
+  }
+}
+
+.portal-root .tab-trigger-custom[data-state="active"],
+.telecare-session--portal .tab-trigger-custom[data-state="active"] {
+  background-color: var(--portal-teal, #0a4f6e) !important;
+  color: #ffffff !important;
+}
+
+.telecare-session--staff .tab-trigger-custom[data-state="active"] {
+  background-color: var(--uventorybiz-navy, #142f5c) !important;
+  color: #ffffff !important;
+}

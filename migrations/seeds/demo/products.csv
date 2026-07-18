@@ -1,0 +1,61 @@
+itemName,itemCode,category,unitOfMeasure,barcode,brand,description,currentStock,minimumStock,maximumStock,reorderPoint,unitCost,supplier
+Bottled Water 750ml,CON-WAT0001,consumables,bottle,6001234000001,VoltaPure,Still drinking water,240,48,500,60,1.50,Volta Beverages GH
+Sparkling Water 500ml,CON-WAT0002,consumables,bottle,6001234000002,VoltaPure,Carbonated water,180,36,400,48,2.00,Volta Beverages GH
+Cola Soft Drink 330ml,CON-BEV0001,consumables,can,6001234000003,FizzCola,Classic cola can,320,60,600,80,2.50,Volta Beverages GH
+Orange Juice 1L,CON-BEV0002,consumables,carton,6001234000004,Sunrise,Ready-to-drink juice,96,24,200,30,8.00,Volta Beverages GH
+Energy Drink 250ml,CON-BEV0003,consumables,can,6001234000005,VoltBoost,Caffeine energy drink,150,30,300,40,6.50,Volta Beverages GH
+White Rice 5kg,CON-STA0001,consumables,bag,6001234000006,NorthernGold,Long grain rice,80,20,150,25,45.00,Northern Agro Supply
+Vegetable Oil 2L,CON-STA0002,consumables,bottle,6001234000007,NorthernGold,Cooking oil,110,24,200,30,38.00,Northern Agro Supply
+Sugar 1kg,CON-STA0003,consumables,bag,6001234000008,Coastal,Granulated sugar,140,30,250,40,12.00,Coastal Foods Ltd
+Wheat Flour 2kg,CON-STA0004,consumables,bag,6001234000009,Coastal,All-purpose flour,95,20,180,28,18.00,Coastal Foods Ltd
+Tomato Paste 400g,CON-STA0005,consumables,tin,6001234000010,Coastal,Cooking paste,200,40,400,50,7.50,Coastal Foods Ltd
+Instant Noodles (pack of 5),CON-SNK0001,consumables,pack,6001234000011,Savanna,Chicken flavour,260,50,500,70,6.00,Savanna Snacks Ltd
+Biscuits Assorted 200g,CON-SNK0002,consumables,pack,6001234000012,Savanna,Sweet biscuits,180,36,350,48,5.50,Savanna Snacks Ltd
+Potato Chips 50g,CON-SNK0003,consumables,bag,6001234000013,Savanna,Salted chips,300,60,600,80,3.00,Savanna Snacks Ltd
+Chocolate Bar 45g,CON-SNK0004,consumables,bar,6001234000014,Savanna,Milk chocolate,220,40,450,55,4.00,Savanna Snacks Ltd
+Peanut Butter 350g,CON-SNK0005,consumables,jar,6001234000015,Coastal,Smooth peanut butter,70,15,120,20,22.00,Coastal Foods Ltd
+Hand Soap 250ml,CON-HPC0001,consumables,bottle,6001234000016,GreenLeaf,Liquid hand soap,160,30,300,40,9.00,GreenLeaf Personal Care
+Body Lotion 400ml,CON-HPC0002,consumables,bottle,6001234000017,GreenLeaf,Moisturising lotion,90,18,180,24,28.00,GreenLeaf Personal Care
+Toothpaste 100ml,CON-HPC0003,consumables,tube,6001234000018,GreenLeaf,Mint toothpaste,200,40,400,50,8.50,GreenLeaf Personal Care
+Shampoo 400ml,CON-HPC0004,consumables,bottle,6001234000019,GreenLeaf,Everyday shampoo,85,16,160,22,25.00,GreenLeaf Personal Care
+Laundry Detergent 1kg,CON-CLN0001,consumables,pack,6001234000020,EcoClean,Powder detergent,120,24,220,30,32.00,EcoClean Supplies
+Dishwashing Liquid 750ml,CON-CLN0002,consumables,bottle,6001234000021,EcoClean,Lemon dish soap,130,26,250,35,14.00,EcoClean Supplies
+Surface Cleaner 1L,CON-CLN0003,consumables,bottle,6001234000022,EcoClean,Multipurpose cleaner,75,15,150,20,16.00,EcoClean Supplies
+Toilet Paper 9-roll,CON-CLN0004,consumables,pack,6001234000023,EcoClean,Soft tissue rolls,100,20,200,28,28.00,EcoClean Supplies
+Paper Towels 2-roll,CON-CLN0005,consumables,pack,6001234000024,Atlantic,Kitchen towels,90,18,180,24,15.00,Atlantic Paper Mills
+A4 Copy Paper (ream),SUP-PAP0001,medical-supplies,ream,6001234000025,Atlantic,80gsm white paper,60,12,120,16,42.00,Atlantic Paper Mills
+Ballpoint Pens (box 50),SUP-OFF0001,medical-supplies,box,6001234000026,OfficeEssentials,Blue ink pens,45,10,100,15,25.00,Office Essentials GH
+Notebooks A5 (pack 10),SUP-OFF0002,medical-supplies,pack,6001234000027,OfficeEssentials,Lined notebooks,55,12,120,16,35.00,Office Essentials GH
+Packaging Tape 48mm,SUP-PKG0001,medical-supplies,roll,6001234000028,TemaPack,Clear packing tape,200,40,400,50,4.50,Tema Packaging Co
+Carton Box Medium,SUP-PKG0002,medical-supplies,each,6001234000029,TemaPack,Medium shipping carton,350,80,700,100,3.20,Tema Packaging Co
+Bubble Wrap 10m,SUP-PKG0003,medical-supplies,roll,6001234000030,TemaPack,Protective wrap,40,10,80,12,28.00,Tema Packaging Co
+Stretch Film Roll,SUP-PKG0004,medical-supplies,roll,6001234000031,TemaPack,Pallet wrap,55,12,100,16,55.00,Tema Packaging Co
+Shipping Labels (roll 500),SUP-PKG0005,medical-supplies,roll,6001234000032,TemaPack,Thermal labels,30,8,60,10,45.00,Tema Packaging Co
+Nitrile Gloves M (box 100),SUP-PPE0001,medical-supplies,box,6001234000033,GoldenCare,Disposable gloves,70,15,150,20,38.00,Golden Care Pharma
+Face Masks (box 50),SUP-PPE0002,medical-supplies,box,6001234000034,GoldenCare,3-ply masks,85,20,180,25,22.00,Golden Care Pharma
+Paracetamol 500mg (blister 10),MED-OTC0001,pharmaceuticals,blister,6001234000035,GoldenCare,Pain relief tablets,200,40,400,50,3.50,Golden Care Pharma
+Ibuprofen 400mg (blister 10),MED-OTC0002,pharmaceuticals,blister,6001234000036,GoldenCare,Anti-inflammatory,160,30,300,40,5.00,Golden Care Pharma
+ORS Sachets (pack 10),MED-OTC0003,pharmaceuticals,pack,6001234000037,GoldenCare,Oral rehydration salts,120,24,240,30,8.00,Golden Care Pharma
+Multivitamin (bottle 30),MED-OTC0004,pharmaceuticals,bottle,6001234000038,GoldenCare,Daily vitamins,90,18,180,24,35.00,Golden Care Pharma
+Antiseptic Liquid 100ml,MED-OTC0005,pharmaceuticals,bottle,6001234000039,GoldenCare,Wound care antiseptic,110,20,200,28,12.00,Golden Care Pharma
+Digital Thermometer,EQP-DEV0001,equipment,each,6001234000040,BrightLight,Infrared thermometer,25,5,50,8,85.00,Bright Light Electronics
+Electronic Kitchen Scale,EQP-DEV0002,equipment,each,6001234000041,BrightLight,5kg digital scale,18,4,40,6,120.00,Bright Light Electronics
+Barcode Scanner USB,EQP-DEV0003,equipment,each,6001234000042,BrightLight,Handheld scanner,12,3,25,4,250.00,Bright Light Electronics
+Cash Drawer Compact,EQP-DEV0004,equipment,each,6001234000043,BrightLight,POS cash drawer,8,2,15,3,450.00,Bright Light Electronics
+Handheld Label Printer,EQP-DEV0005,equipment,each,6001234000044,BrightLight,Thermal label printer,6,2,12,3,680.00,Bright Light Electronics
+LED Desk Lamp,EQP-DEV0006,equipment,each,6001234000045,BrightLight,Adjustable desk lamp,20,5,40,8,75.00,Bright Light Electronics
+UHT Milk 1L,CON-DRY0001,consumables,carton,6001234000046,Sunrise,Long-life milk,100,24,200,30,10.00,Sunrise Dairy Distributors
+Yoghurt Cup 150g,CON-DRY0002,consumables,cup,6001234000047,Sunrise,Plain yoghurt,80,20,160,25,4.50,Sunrise Dairy Distributors
+Butter 250g,CON-DRY0003,consumables,pack,6001234000048,Sunrise,Salted butter,45,10,90,14,22.00,Sunrise Dairy Distributors
+Frozen Chicken Wings 1kg,CON-FRZ0001,consumables,bag,6001234000049,MetroFrozen,Frozen poultry,60,12,120,18,48.00,Metro Frozen Foods
+Frozen Mixed Vegetables 500g,CON-FRZ0002,consumables,bag,6001234000050,MetroFrozen,Peas carrots corn,70,15,140,20,18.00,Metro Frozen Foods
+Screwdriver Set 6pc,EQP-TLS0001,equipment,set,6001234000051,PrimeHardware,Basic hand tools,22,5,40,8,65.00,Prime Hardware Wholesale
+Duct Tape 50mm,SUP-HW0001,medical-supplies,roll,6001234000052,PrimeHardware,Silver duct tape,90,20,180,28,9.00,Prime Hardware Wholesale
+Extension Cord 5m,EQP-TLS0002,equipment,each,6001234000053,PrimeHardware,4-way extension,35,8,70,12,42.00,Prime Hardware Wholesale
+AA Batteries (pack 8),CON-MISC0001,consumables,pack,6001234000054,BrightLight,Alkaline batteries,150,30,300,40,18.00,Bright Light Electronics
+USB Flash Drive 32GB,EQP-DEV0007,equipment,each,6001234000055,BrightLight,USB 3.0 drive,40,10,80,14,55.00,Bright Light Electronics
+Grocery Carrier Bags (pack 50),SUP-PKG0006,medical-supplies,pack,6001234000056,TemaPack,Reusable shopping bags,100,20,200,30,20.00,Tema Packaging Co
+Coffee Instant 100g,CON-BEV0004,consumables,jar,6001234000057,Savanna,Instant coffee,65,12,120,18,32.00,Savanna Snacks Ltd
+Tea Bags (box 100),CON-BEV0005,consumables,box,6001234000058,Savanna,Black tea bags,80,16,150,22,28.00,Savanna Snacks Ltd
+Canned Tuna 185g,CON-STA0006,consumables,tin,6001234000059,Coastal,In brine,130,26,250,35,9.50,Coastal Foods Ltd
+Baked Beans 420g,CON-STA0007,consumables,tin,6001234000060,Coastal,In tomato sauce,140,28,280,36,8.00,Coastal Foods Ltd

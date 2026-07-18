@@ -1,0 +1,67 @@
+name: Sync Development Branch
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  sync-development:
+    # Only run if PR was merged (not just closed) and is from development to main
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Verify source branch (optional check)
+        run: |
+          echo "PR merged from: ${{ github.event.pull_request.head.ref }}"
+          echo "PR merged to: ${{ github.event.pull_request.base.ref }}"
+      
+      - name: Checkout development branch
+        run: |
+          git fetch origin development
+          git checkout development
+          git reset --hard origin/development
+      
+      - name: Check if merge is needed
+        id: check-merge
+        run: |
+          git fetch origin main
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "needs_merge=false" >> $GITHUB_OUTPUT
+            echo "Development is already up to date with main"
+          else
+            echo "needs_merge=true" >> $GITHUB_OUTPUT
+            echo "Development needs to be synced with main"
+          fi
+      
+      - name: Merge main into development
+        if: steps.check-merge.outputs.needs_merge == 'true'
+        run: |
+          git merge origin/main --no-edit -m "chore: sync development with main [skip ci]"
+      
+      - name: Push to development
+        if: steps.check-merge.outputs.needs_merge == 'true'
+        run: |
+          git push origin development
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

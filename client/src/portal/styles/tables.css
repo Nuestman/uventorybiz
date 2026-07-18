@@ -1,0 +1,76 @@
+/*
+ * Portal + in-session provider table styling (light headers, row hover).
+ */
+
+.portal-root thead th,
+.portal-modal-shell thead th,
+.portal-ui thead th,
+.telecare-session thead th,
+body.portal-route [role="dialog"] thead th {
+  font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif) !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.04em !important;
+  background-color: var(--portal-table-head-bg, #f9fafb) !important;
+  color: #6b7280 !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+}
+
+.portal-root thead .text-muted-foreground,
+.portal-modal-shell thead .text-muted-foreground,
+.portal-ui thead .text-muted-foreground,
+.telecare-session thead .text-muted-foreground,
+body.portal-route [role="dialog"] thead .text-muted-foreground {
+  color: #6b7280 !important;
+}
+
+.portal-root tfoot th,
+.portal-modal-shell tfoot th,
+.portal-ui tfoot th,
+.telecare-session tfoot th {
+  text-transform: none !important;
+}
+
+.portal-root table tbody a,
+.portal-root table tfoot a,
+.portal-modal-shell table tbody a,
+.portal-modal-shell table tfoot a,
+.portal-ui table tbody a,
+.portal-ui table tfoot a,
+.telecare-session--portal table tbody a,
+.telecare-session--portal table tfoot a,
+body.portal-route [role="dialog"] table tbody a,
+body.portal-route [role="dialog"] table tfoot a {
+  color: var(--portal-teal, #0a4f6e);
+}
+
+.portal-root table tbody a:hover,
+.portal-root table tfoot a:hover,
+.portal-modal-shell table tbody a:hover,
+.portal-modal-shell table tfoot a:hover,
+.portal-ui table tbody a:hover,
+.portal-ui table tfoot a:hover,
+.telecare-session--portal table tbody a:hover,
+.telecare-session--portal table tfoot a:hover,
+body.portal-route [role="dialog"] table tbody a:hover,
+body.portal-route [role="dialog"] table tfoot a:hover {
+  color: var(--portal-teal-dark, #083d55);
+  filter: none;
+}
+
+.portal-root tbody tr,
+.portal-modal-shell tbody tr,
+.portal-ui tbody tr,
+.telecare-session tbody tr,
+body.portal-route [role="dialog"] tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.portal-root tbody tr:hover,
+.portal-modal-shell tbody tr:hover,
+.portal-ui tbody tr:hover,
+.telecare-session--portal tbody tr:hover,
+.telecare-session--staff tbody tr:hover,
+body.portal-route [role="dialog"] tbody tr:hover {
+  background-color: var(--portal-table-head-bg, #f9fafb) !important;
+}

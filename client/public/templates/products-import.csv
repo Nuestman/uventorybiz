@@ -1,0 +1,5 @@
+itemName,itemCode,category,unitOfMeasure,barcode,brand,description,currentStock,minimumStock,maximumStock,reorderPoint,unitCost,supplier
+Bottled Water 750ml,CON-WAT0001,consumables,bottle,6001234000001,VoltaPure,Still drinking water,240,48,500,60,1.50,Volta Beverages GH
+A4 Copy Paper (ream),SUP-PAP0001,medical-supplies,ream,6001234000025,Atlantic,80gsm white paper,60,12,120,16,42.00,Atlantic Paper Mills
+Paracetamol 500mg (blister 10),MED-OTC0001,pharmaceuticals,blister,6001234000035,GoldenCare,Pain relief tablets,200,40,400,50,3.50,Golden Care Pharma
+Barcode Scanner USB,EQP-DEV0003,equipment,each,6001234000042,BrightLight,Handheld scanner,12,3,25,4,250.00,Bright Light Electronics

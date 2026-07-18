@@ -1,0 +1,90 @@
+/*
+ * Portal design shell — single isolation boundary.
+ * All portal UI must live under .portal-root (or an alias below).
+ * Sets shadcn + portal tokens; does not remap main-app brand vars on :root.
+ */
+
+.portal-root,
+.portal-page,
+.portal-marketing,
+.portal-modal-shell,
+.portal-ui,
+.telecare-session--portal {
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-display: "Outfit", system-ui, sans-serif;
+
+  --portal-teal: #0a4f6e;
+  --portal-teal-dark: #083d55;
+  --portal-teal-light: #d9e8ef;
+  --portal-mint: #1ab8a0;
+  --portal-surface: #eef2f6;
+  --portal-card: #ffffff;
+  --portal-muted: #5c7585;
+  --portal-text: #0c1a27;
+  --portal-hero-from: #0a4f6e;
+  --portal-hero-to: #062a3a;
+  --input-background: #eef2f6;
+  --portal-radius: 1rem;
+  --portal-radius-lg: 1.25rem;
+  --portal-radius-xl: 1.5rem;
+  --portal-table-head-bg: #f9fafb;
+
+  /* shadcn / Tailwind token bridge (scoped — main app :root unchanged) */
+  --radius: var(--portal-radius-lg);
+  --background: #ffffff;
+  --foreground: var(--portal-text);
+  --card: var(--portal-card);
+  --card-foreground: var(--portal-text);
+  --popover: #ffffff;
+  --popover-foreground: var(--portal-text);
+  --primary: var(--portal-teal);
+  --primary-foreground: #ffffff;
+  --secondary: var(--portal-teal-light);
+  --secondary-foreground: var(--portal-teal-dark);
+  --muted: var(--portal-surface);
+  --muted-foreground: var(--portal-muted);
+  --accent: var(--portal-teal-light);
+  --accent-foreground: var(--portal-teal-dark);
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: var(--portal-mint);
+
+  font-family: var(--font-sans);
+  color: var(--portal-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Portaled radix layers while a portal route is active */
+body.portal-route [role="dialog"],
+body.portal-route [role="alertdialog"],
+body.portal-route [role="menu"],
+body.portal-route [data-radix-select-viewport] {
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-display: "Outfit", system-ui, sans-serif;
+  --portal-teal: #0a4f6e;
+  --portal-teal-dark: #083d55;
+  --portal-teal-light: #d9e8ef;
+  --portal-muted: #5c7585;
+  --portal-text: #0c1a27;
+  --portal-radius: 1rem;
+  --portal-radius-lg: 1.25rem;
+  --input-background: #eef2f6;
+  --radius: var(--portal-radius-lg);
+  --background: #ffffff;
+  --foreground: var(--portal-text);
+  --primary: var(--portal-teal);
+  --primary-foreground: #ffffff;
+  --secondary: var(--portal-teal-light);
+  --secondary-foreground: var(--portal-teal-dark);
+  --muted: var(--portal-surface, #eef2f6);
+  --muted-foreground: var(--portal-muted);
+  --accent: var(--portal-teal-light);
+  --accent-foreground: var(--portal-teal-dark);
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: var(--portal-mint, #1ab8a0);
+  font-family: var(--font-sans);
+  color: var(--portal-text);
+}

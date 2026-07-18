@@ -1,0 +1,85 @@
+/*
+ * Portal base typography & elements.
+ * Scoped under .portal-root — overrides global HMS @layer base where it uses !important.
+ */
+
+.portal-root h1,
+.portal-root h2,
+.portal-root h3,
+.portal-root h4,
+.portal-root h5,
+.portal-root h6,
+.telecare-session--portal h1,
+.telecare-session--portal h2,
+.telecare-session--portal h3,
+.telecare-session--portal h4,
+.telecare-session--portal h5,
+.telecare-session--portal h6 {
+  font-family: var(--font-display) !important;
+  color: var(--portal-text) !important;
+  letter-spacing: -0.02em !important;
+  text-transform: none !important;
+}
+
+.portal-marketing h1,
+.portal-marketing .portal-display-heading {
+  font-family: var(--font-display) !important;
+  color: var(--portal-accent) !important;
+}
+
+.portal-root button,
+.portal-root a,
+.portal-root .btn {
+  font-family: inherit !important;
+  letter-spacing: normal !important;
+  font-size: inherit !important;
+  text-transform: none !important;
+}
+
+.portal-root label {
+  text-transform: none !important;
+}
+
+body.portal-route [role="dialog"] h1,
+body.portal-route [role="dialog"] h2,
+body.portal-route [role="dialog"] h3,
+body.portal-route [role="dialog"] h4,
+body.portal-route [role="dialog"] h5,
+body.portal-route [role="dialog"] h6,
+body.portal-route [role="alertdialog"] h1,
+body.portal-route [role="alertdialog"] h2,
+body.portal-route [role="alertdialog"] h3,
+body.portal-route [role="alertdialog"] h4,
+body.portal-route [role="alertdialog"] h5,
+body.portal-route [role="alertdialog"] h6 {
+  font-family: var(--font-display) !important;
+  color: var(--portal-text) !important;
+  letter-spacing: -0.02em !important;
+  text-transform: none !important;
+}
+
+body.portal-route [role="dialog"] button,
+body.portal-route [role="dialog"] a,
+body.portal-route [role="alertdialog"] button,
+body.portal-route [role="alertdialog"] a {
+  font-family: inherit !important;
+  letter-spacing: normal !important;
+  font-size: inherit !important;
+  text-transform: none !important;
+}
+
+body.portal-route [role="dialog"] label,
+body.portal-route [role="alertdialog"] label {
+  text-transform: none !important;
+}
+
+body.portal-route [role="menu"] button,
+body.portal-route [role="menu"] a,
+body.portal-route [role="menuitem"],
+body.portal-route [role="menuitem"] button,
+body.portal-route [role="menuitem"] a {
+  font-family: inherit !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  font-size: inherit !important;
+}

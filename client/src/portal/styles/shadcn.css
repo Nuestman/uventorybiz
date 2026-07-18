@@ -1,0 +1,76 @@
+/*
+ * Portal-scoped shadcn / shared UI primitives (cards, buttons, inputs, badges).
+ */
+
+.portal-root .rounded-lg.border.bg-card,
+.portal-modal-shell.rounded-lg.border,
+body.portal-route [role="dialog"] .rounded-lg.border.bg-card,
+body.portal-route [role="dialog"].portal-ui,
+body.portal-route [role="dialog"] .portal-ui {
+  border-radius: var(--portal-radius-lg);
+}
+
+.portal-root .rounded-lg.border.bg-white,
+.portal-root .rounded-lg.border.border-gray-200,
+.portal-root .rounded-lg.border.border-dashed {
+  border-radius: var(--portal-radius-lg);
+}
+
+.portal-root button.rounded-md,
+.portal-root [role="combobox"],
+.portal-root input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.portal-root textarea,
+.portal-modal-shell button.rounded-md,
+.portal-modal-shell [role="combobox"],
+.portal-modal-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.portal-modal-shell textarea,
+body.portal-route [role="dialog"] button.rounded-md,
+body.portal-route [role="dialog"] [role="combobox"],
+body.portal-route [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+body.portal-route [role="dialog"] textarea {
+  border-radius: var(--portal-radius);
+}
+
+/* Card titles ship with main-app coral token — use portal display font + text inside shell */
+.portal-root .rounded-lg.border.bg-card .text-lg.font-semibold,
+body.portal-route [role="dialog"] .rounded-lg.border.bg-card .text-lg.font-semibold,
+body.portal-route [role="alertdialog"] .rounded-lg.border.bg-card .text-lg.font-semibold,
+.portal-root .rounded-lg.border.bg-card .text-base.font-semibold,
+body.portal-route [role="dialog"] .rounded-lg.border.bg-card .text-base.font-semibold,
+body.portal-route [role="alertdialog"] .rounded-lg.border.bg-card .text-base.font-semibold {
+  color: var(--portal-text);
+  text-transform: none;
+  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+}
+
+.portal-root .rounded-lg.border.bg-card .text-sm.capitalize.text-muted-foreground,
+body.portal-route [role="dialog"] .rounded-lg.border.bg-card .text-sm.capitalize.text-muted-foreground {
+  text-transform: none;
+}
+
+/* Default shadcn primary buttons — portal teal, not main-app navy */
+.portal-root button.bg-primary,
+.portal-modal-shell button.bg-primary,
+body.portal-route [role="dialog"] button.bg-primary,
+body.portal-route [role="alertdialog"] button.bg-primary {
+  background-color: var(--portal-teal) !important;
+  color: #fff !important;
+}
+
+.portal-root button.bg-primary:hover:not(:disabled),
+.portal-modal-shell button.bg-primary:hover:not(:disabled),
+body.portal-route [role="dialog"] button.bg-primary:hover:not(:disabled),
+body.portal-route [role="alertdialog"] button.bg-primary:hover:not(:disabled) {
+  background-color: var(--portal-teal-dark) !important;
+}
+
+/* Shared vitals components still use uventorybiz-navy link tokens in portal context */
+.portal-root a.text-uventorybiz-navy,
+.portal-root .text-uventorybiz-navy:not(thead *):not(thead) {
+  color: var(--portal-teal);
+}
+
+.portal-root a.text-uventorybiz-navy:hover {
+  color: var(--portal-teal-dark);
+}

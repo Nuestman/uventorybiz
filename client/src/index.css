@@ -1,0 +1,554 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(20, 14.3%, 4.1%);
+  --muted: hsl(60, 4.8%, 95.9%);
+  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(20, 14.3%, 4.1%);
+  --border: hsl(20, 5.9%, 90%);
+  --input: hsl(20, 5.9%, 90%);
+  --primary: #142F5C;
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: #EAF6FF;
+  --secondary-foreground: #142F5C;
+  /* --accent: #FF4D4D;
+  --aga-accent: #F6921E;
+  --aga-accent-1: #F6621E; */
+  --accent: #F6621E;
+  --accent-foreground: hsl(211, 100%, 99%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(60, 9.1%, 97.8%);
+  --ring: hsl(20, 14.3%, 4.1%);
+  --radius: 0.5rem;
+  
+  /* UventoryBiz brand colors */
+  --uventorybiz-navy: #142F5C;
+  /* --uventorybiz-coral: #FF4D4D; Test out new accent color #F6621E*/
+  --uventorybiz-coral: #F6621E;
+  --uventorybiz-light: #EAF6FF;
+  --uventorybiz-gray: hsl(210, 11%, 43%);
+  --uventorybiz-light-gray: #142f5c0d;
+
+  /*
+   * Chart series tokens for Recharts / shadcn ChartContainer.
+   * Values are unwrapped H S L for use as hsl(var(--chart-n)) on SVG fills/strokes.
+   */
+  --chart-1: 215 61% 38%;
+  --chart-2: 25 88% 52%;
+  --chart-3: 197 45% 42%;
+  --chart-4: 43 72% 58%;
+  --chart-5: 280 42% 52%;
+}
+
+.dark {
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 3.7%, 15.9%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --popover: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 3.9%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(240, 3.7%, 15.9%);
+  --input: hsl(240, 3.7%, 15.9%);
+  --primary: hsl(215, 61%, 41%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(240, 3.7%, 15.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(240, 3.7%, 15.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(240, 4.9%, 83.9%);
+  --radius: 0.5rem;
+
+  --chart-1: 210 65% 62%;
+  --chart-2: 25 82% 58%;
+  --chart-3: 197 55% 52%;
+  --chart-4: 43 68% 62%;
+  --chart-5: 280 50% 62%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+
+  /* Apply Odibee Sans to headings, buttons, and links */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Outfit", system-ui, sans-serif;
+    letter-spacing: 0.05em;
+    /* UventoryBiz accent; !important so this wins over utility classes like text-gray-900 on headings */
+    color: var(--uventorybiz-coral) !important;
+    text-transform: capitalize !important;
+  }
+
+  /* System heading scale (matches tickets / records / patients); !important beats utility font-size on h2/h3 */
+  h2 {
+    font-size: 1.5rem !important;
+    line-height: 2rem !important;
+    font-weight: 700 !important;
+  }
+
+  h3 {
+    font-size: 1.125rem !important;
+    line-height: 1.75rem !important;
+    font-weight: 600 !important;
+  }
+
+  label {
+    text-transform: capitalize !important;
+  }
+
+  thead,
+  thead th {
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    /* font-size: 1.1rem;
+    letter-spacing: 0.08em; */
+    background-color: var(--uventorybiz-navy);
+    color: white;
+    font-weight: 600;
+    text-transform: capitalize !important;
+  }
+
+  thead .text-muted-foreground {
+    color: white;
+  }
+
+  tfoot th {
+    text-transform: capitalize !important;
+  }
+
+  button,
+  a,
+  .btn {
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    /* letter-spacing: 0.08em;
+    font-size: 1rem; */
+  }
+}
+
+/* Data table links: UventoryBiz accent for navigation affordance (tbody/tfoot only; thead stays on navy) */
+table tbody a,
+table tfoot a {
+  color: var(--uventorybiz-coral) !important;
+}
+
+table tbody a:hover,
+table tfoot a:hover {
+  filter: brightness(0.92);
+}
+
+table tbody a.text-destructive,
+table tfoot a.text-destructive {
+  color: var(--destructive) !important;
+}
+
+table tbody a.text-destructive:hover,
+table tfoot a.text-destructive:hover {
+  filter: none;
+  opacity: 0.92;
+}
+
+/* Tailwind Typography `.prose` sets thead cells to dark text; keep UventoryBiz navy + white */
+.prose thead th,
+.sop-library-content thead th {
+  background-color: var(--uventorybiz-navy) !important;
+  color: #ffffff !important;
+}
+
+/* SOP library: typography default is max-width 65ch on `.prose` — fill the card width */
+.sop-library-content {
+  max-width: none !important;
+  width: 100%;
+}
+
+/* Custom utility classes */
+.uventorybiz-navy {
+  color: var(--uventorybiz-navy);
+}
+
+.bg-uventorybiz-navy {
+  background-color: var(--uventorybiz-navy);
+}
+
+.letter-spacing-med {
+  letter-spacing: 0.1em;
+}
+
+/* Custom tab styling */
+.tabs-list-custom {
+  background-color: white;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.25rem;
+  gap: 0.25rem;
+}
+
+.tab-trigger-custom {
+  background-color: transparent;
+  color: var(--uventorybiz-navy);
+  border-radius: 0.375rem;
+  padding: 0.75rem 1.1rem;
+  transition: all 0.2s ease-in-out;
+  /* font-size: 1.1rem !important;
+  letter-spacing: 0.08em; */
+}
+
+.tab-trigger-custom:hover {
+  background-color: #f9fafb;
+}
+
+.tab-trigger-custom[data-state="active"] {
+  background-color: var(--uventorybiz-navy) !important;
+  color: white !important;
+}
+
+/* SOP admin catalogue: same tab styling as Admin/Settings, scaled for narrow sidebar */
+.sop-sidebar .tabs-list-custom .tab-trigger-custom {
+  font-size: 0.75rem !important;
+  line-height: 1.25rem !important;
+  letter-spacing: 0 !important;
+  padding: 0.5rem 0.35rem !important;
+}
+
+@media (min-width: 640px) {
+  .sop-sidebar .tabs-list-custom .tab-trigger-custom {
+    font-size: 0.875rem !important;
+    padding: 0.5rem 0.65rem !important;
+  }
+}
+
+/* UI Enhancement Classes */
+.card-hover-accent {
+  transition: all 0.2s ease-in-out;
+  border: 1px solid transparent;
+}
+
+.card-hover-accent:hover {
+  border-color: var(--uventorybiz-coral);
+  box-shadow: 0 0 0 1px var(--uventorybiz-coral), 0 4px 12px rgba(255, 77, 77, 0.1);
+  transform: translateY(-1px);
+}
+
+.card-hover-accent:active {
+  border-color: var(--uventorybiz-coral);
+  box-shadow: 0 0 0 2px var(--uventorybiz-coral), 0 2px 8px rgba(255, 77, 77, 0.15);
+  transform: translateY(0);
+}
+
+/* Enhanced Card Hover Effects for All Cards */
+.card, .card-enhanced, [data-testid*="card"] {
+  transition: all 0.2s ease-in-out;
+  border: 1px solid #e5e7eb;
+}
+
+.card:hover, .card-enhanced:hover, [data-testid*="card"]:hover {
+  border-color: var(--uventorybiz-coral);
+  box-shadow: 0 0 0 1px var(--uventorybiz-coral), 0 4px 12px rgba(255, 77, 77, 0.1);
+  transform: translateY(-1px);
+}
+
+.nav-link-enhanced {
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease-in-out;
+  position: relative;
+}
+
+.nav-link-enhanced:hover {
+  color: var(--uventorybiz-coral) !important;
+}
+
+.nav-link-enhanced.active {
+  color: var(--uventorybiz-coral) !important;
+}
+
+.nav-link-enhanced.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 2px;
+  background-color: var(--uventorybiz-coral);
+  border-radius: 1px;
+}
+
+.sidebar-mobile-bg {
+  background-color: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.uventorybiz-coral {
+  color: var(--uventorybiz-coral);
+}
+
+.bg-uventorybiz-coral {
+  background-color: var(--uventorybiz-coral);
+}
+
+.uventorybiz-light {
+  color: var(--uventorybiz-light);
+}
+
+.bg-uventorybiz-light {
+  background-color: var(--uventorybiz-light);
+}
+
+.uventorybiz-gray {
+  color: var(--uventorybiz-gray);
+}
+
+.bg-uventorybiz-gray {
+  background-color: var(--uventorybiz-gray);
+}
+
+.bg-uventorybiz-light-gray {
+  background-color: var(--uventorybiz-light-gray);
+}
+
+/* Sidebar navigation styles - override shadcn defaults */
+[data-sidebar="sidebar"] a {
+  transition: all 0.2s ease-in-out !important;
+  letter-spacing: 0;
+}
+
+/* Hover states for all sidebar links */
+[data-sidebar="sidebar"] a:hover {
+  background-color: rgba(20, 47, 92, 0.08) !important;
+  color: var(--uventorybiz-navy) !important;
+}
+
+/* More specific targeting for navigation links */
+.sidebar-nav-link {
+  transition: all 0.2s ease-in-out !important;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* Improve contrast for submenu items (inside dropdowns) - both active and inactive */
+[data-sidebar="menu-sub-button"] {
+  font-weight: 400 !important;
+}
+
+[data-sidebar="menu-sub-button"] a,
+[data-sidebar="menu-sub-button"] {
+  color: #1F2937 !important;
+  font-weight: 400 !important;
+}
+
+/* Active submenu items */
+[data-sidebar="menu-sub-button"][data-active="true"] a,
+[data-sidebar="menu-sub-button"][data-active="true"] {
+  color: var(--uventorybiz-navy) !important;
+  font-weight: 600 !important;
+}
+
+.sidebar-label {
+  /* letter-spacing: 0.05em; */
+  font-family: "Outfit", system-ui, sans-serif;
+  /* text-transform: capitalize; */
+}
+
+/* SOP module sidebars: override global Odibee Sans for contrast + readability */
+.sop-sidebar {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
+}
+
+.sop-sidebar a,
+.sop-sidebar button {
+  font-family: inherit !important;
+  letter-spacing: 0 !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+}
+
+.sop-sidebar a.sop-sidebar-link {
+  border-width: 1px !important;
+  border-style: solid !important;
+}
+
+.sop-sidebar-button {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
+  letter-spacing: 0 !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+}
+
+.sop-sidebar-link-title {
+  font-weight: 700 !important;
+  text-transform: capitalize !important;
+}
+
+.sop-view-title {
+  text-transform: capitalize !important;
+}
+
+.sidebar-nav-link:hover {
+  background-color: rgba(20, 47, 92, 0.08) !important;
+  color: var(--uventorybiz-navy) !important;
+}
+
+.sidebar-nav-link.active {
+  background-color: rgba(20, 47, 92, 0.15) !important;
+  color: var(--uventorybiz-navy) !important;
+  font-weight: 700 !important;
+}
+
+.sidebar-nav-link.active:hover {
+  background-color: rgba(20, 47, 92, 0.12) !important;
+}
+
+/* Sidebar dropdown container transitions - ensure smooth expand/collapse */
+.sidebar-dropdown-container {
+  transition: max-height 500ms ease-in-out !important;
+}
+
+/* Staggered fade-in animation for dropdown menu items */
+.sidebar-dropdown-item {
+  opacity: 0;
+  animation: sidebarItemFadeIn 300ms ease-out forwards;
+}
+
+.sidebar-dropdown-item-collapse {
+  opacity: 1;
+  animation: sidebarItemFadeOut 300ms ease-in forwards;
+}
+
+@keyframes sidebarItemFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sidebarItemFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+
+/* Printable documents (super-admin commercial + public legal): strip chrome when printing */
+@media print {
+  body.super-admin-print-document [data-sidebar="sidebar"],
+  body.super-admin-print-document [data-sidebar="rail"],
+  body.legal-print-document [data-sidebar="sidebar"],
+  body.legal-print-document [data-sidebar="rail"] {
+    display: none !important;
+  }
+  body.super-admin-print-document header.sticky,
+  body.legal-print-document header.sticky {
+    display: none !important;
+  }
+  body.super-admin-print-document main#app-scroll-region,
+  body.legal-print-document main#app-scroll-region {
+    padding: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+  body.super-admin-print-document .group\/sidebar-wrapper,
+  body.legal-print-document .group\/sidebar-wrapper {
+    display: block !important;
+    min-height: 0 !important;
+  }
+
+  /* Clinical reports: printable summary (user uses system Print → Save as PDF) */
+  body.clinical-reports-print [data-sidebar="sidebar"],
+  body.clinical-reports-print [data-sidebar="rail"] {
+    display: none !important;
+  }
+  body.clinical-reports-print header.sticky {
+    display: none !important;
+  }
+  body.clinical-reports-print main#app-scroll-region {
+    padding: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+  body.clinical-reports-print .group\/sidebar-wrapper {
+    display: block !important;
+    min-height: 0 !important;
+  }
+}
+
+/* Telehealth local camera preview (mirror) */
+.mirror-video {
+  transform: scaleX(-1);
+}
+
+/* Offline connectivity banner — full viewport width above fixed sidebars */
+:root {
+  --connectivity-banner-height: 0px;
+}
+
+html[data-offline-banner="true"] {
+  --connectivity-banner-height: 2.5rem;
+}
+
+/* Staff / super-admin main column */
+html[data-offline-banner="true"] .group\/sidebar-wrapper {
+  padding-top: var(--connectivity-banner-height);
+}
+
+/* Portal content column (sidebar is fixed separately) */
+html[data-offline-banner="true"] .portal-page > .flex.flex-col.flex-1 {
+  padding-top: var(--connectivity-banner-height);
+}
+
+/* Auth, landing, and other pages without an app shell wrapper */
+html[data-offline-banner="true"] body:not(:has(.group\/sidebar-wrapper)):not(:has(.portal-page)) {
+  padding-top: var(--connectivity-banner-height);
+}
+
+html[data-offline-banner="true"] .group\/sidebar-wrapper .fixed.inset-y-0 {
+  top: var(--connectivity-banner-height);
+  bottom: auto;
+  height: calc(100svh - var(--connectivity-banner-height));
+}
+
+html[data-offline-banner="true"] aside[aria-label="Portal navigation"] {
+  top: var(--connectivity-banner-height);
+  bottom: auto;
+  height: calc(100svh - var(--connectivity-banner-height));
+}
+
+/* Sticky headers (staff TopBar, portal mobile/desktop bars, etc.) */
+html[data-offline-banner="true"] header.sticky.top-0 {
+  top: var(--connectivity-banner-height);
+}

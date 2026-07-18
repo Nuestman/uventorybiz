@@ -1,0 +1,23 @@
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+
+# Local file uploads
+uploads/
+public/profiles/
+public/tenants/
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Replit agent local cache (not part of the app; regenerated on Replit only)
+.local/
+
+# FHIR transfer test bundles (local PHI — never commit)
+uventorybiz-transfer-*.json

@@ -1,0 +1,9 @@
+employeeNumber,firstName,lastName,email,department,position,companyId
+EMP-DEMO-001,Abena,Owusu,abena.owusu@uventorybiz.demo,sales,Sales Associate,PLACEHOLDER_COMPANY_ID
+EMP-DEMO-002,Kwame,Mensah,kwame.mensah@uventorybiz.demo,warehouse,Store Keeper,PLACEHOLDER_COMPANY_ID
+EMP-DEMO-003,Akosua,Boateng,akosua.boateng@uventorybiz.demo,operations,Operations Lead,PLACEHOLDER_COMPANY_ID
+EMP-DEMO-004,Yaw,Asante,yaw.asante@uventorybiz.demo,sales,POS Cashier,PLACEHOLDER_COMPANY_ID
+EMP-DEMO-005,Efua,Darko,efua.darko@uventorybiz.demo,administration,Office Admin,PLACEHOLDER_COMPANY_ID
+EMP-DEMO-006,Kofi,Adjei,kofi.adjei@uventorybiz.demo,warehouse,Receiving Clerk,PLACEHOLDER_COMPANY_ID
+EMP-DEMO-007,Adwoa,Sarpong,adwoa.sarpong@uventorybiz.demo,maintenance,Facilities Tech,PLACEHOLDER_COMPANY_ID
+EMP-DEMO-008,Nana,Yeboah,nana.yeboah@uventorybiz.demo,operations,Shift Supervisor,PLACEHOLDER_COMPANY_ID

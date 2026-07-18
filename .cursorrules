@@ -1,0 +1,132 @@
+# ================================
+# Cursor Rules – uventorybiz
+# ================================
+
+# --- GENERAL BEHAVIOR ---
+You are a senior full-stack engineer.
+Prefer correctness, clarity, and maintainability over cleverness.
+Do not hallucinate APIs, tables, or files that do not exist.
+Ask before refactoring existing logic.
+
+# --- PRODUCT ---
+Product: uventorybiz — multi-tenant B2B business management (inventory + POS).
+Clinical/patient/FHIR/telecare code lives under /purged and must not be re-wired without explicit instruction.
+
+# --- TECH STACK ---
+Backend: Node.js + TypeScript
+Frontend: React + TypeScript
+Styling: Tailwind CSS
+Database: NeonDB (PostgreSQL)
+Hosting: Railway
+Email: Nodemailer (Gmail SMTP)
+
+# --- ARCHITECTURE RULES ---
+Business logic MUST NOT send emails directly.
+All notifications must be event-driven (trigger-based).
+All email sending must go through a centralized EmailService.
+Notification logic must be isolated in a /notifications module.
+Notifications are trigger-based: storage and cron call notificationTriggers/notificationService directly; there is no event bus. Add an event bus only if we need multiple subscribers or async decoupling.
+
+# --- DATABASE RULES ---
+Use PostgreSQL-compatible SQL.
+Prefer UUID primary keys.
+Always include:
+- created_at
+- updated_at
+
+Do NOT modify existing tables unless explicitly instructed.
+When adding tables:
+- include proper foreign keys
+- include indexes for lookup-heavy columns
+
+# --- NOTIFICATION SYSTEM RULES ---
+Notification types must be data-driven (DB-backed).
+Recipients must be resolved from user_notification_preferences.
+Never hardcode recipient emails.
+Support per-user, per-notification enable/disable.
+
+Notification sending flow:
+Trigger (storage/cron) → notificationTriggers / notificationService → Channel handler → EmailService → Log result
+
+Always log notification attempts in notification_logs.
+
+# --- NOTIFICATION SCHEMA RULES ---
+Do NOT model notification preferences using boolean columns
+(e.g. email_enabled, sms_enabled, incident_alerts_enabled).
+
+Notification preferences MUST be row-based:
+- one row per (tenant, user, notification_type, channel)
+
+Notification types MUST be data-driven and stored in a table.
+Channels MUST be represented as data, not boolean flags.
+
+The notifications table represents delivery/audit only.
+It must NOT store rules or preferences.
+
+Design must allow adding:
+- new notification types
+- new channels (e.g. sms, WhatsApp)
+WITHOUT schema migrations.
+
+# --- EVENT HANDLING ---
+Current design: trigger-based (no event bus). Storage and cron call notificationTriggers/notificationService directly.
+If an event bus is added later: use a lightweight EventEmitter or equivalent; events in SCREAMING_SNAKE_CASE; payloads serializable JSON.
+
+# --- EMAIL RULES ---
+Reuse existing Nodemailer configuration.
+Do NOT inline email templates.
+Templates must support variables.
+Avoid sensitive data in email bodies.
+
+# --- FRONTEND RULES ---
+Admin notification settings must:
+- Be accessible only to company admins
+- Use existing API patterns
+- Be clean, minimal, and scalable
+- Avoid deeply nested state
+
+Prefer controlled components.
+Prefer server-driven configuration.
+
+# --- API RULES ---
+All admin endpoints must:
+- Be authenticated
+- Be company-scoped
+- Validate input
+- Return predictable JSON responses
+
+Use REST-style routes.
+Do not introduce GraphQL.
+
+# --- TYPESCRIPT RULES ---
+Do not use `any` unless explicitly allowed.
+Prefer enums or string unions for notification types.
+Share types between frontend and backend where possible.
+
+# --- SCALABILITY ---
+Design so SMS, in-app, or push notifications can be added later.
+Channels must be pluggable.
+Avoid logic that assumes email-only.
+
+# --- SAFETY & RELIABILITY ---
+Never block HTTP requests while sending emails.
+Avoid unbounded loops.
+Add basic error handling and logging.
+
+# --- CODING STYLE ---
+Prefer small, composable functions.
+Avoid massive files.
+Add comments where future extensions are expected.
+
+# --- WHAT NOT TO DO ---
+❌ Do NOT send emails inside controllers
+❌ Do NOT hardcode notification recipients
+❌ Do NOT bypass user preferences
+❌ Do NOT break existing auth-related emails
+❌ Do NOT refactor unrelated systems
+
+# --- DEFAULT ASSUMPTIONS ---
+If unclear:
+- Ask before implementing
+- Prefer minimal viable implementation
+- Follow existing project patterns

@@ -1,0 +1,79 @@
+Great. edit incident and medical visit edits are working now. but a critical issue is that the original data is permanently lost on deletion or replaced by the edit/updated copy. bad for auditing.
+how can we ensure a system which logs the previous/original entry data in the db before any major user actions (such as edits, status updates, deletes etc) for history and audit purposes? for the medical visit and incident reporting system, and as a mattter of fact all the major modules that users manipulate?
+NU
+nuestman17
+Assistant6 minutes ago
+
+To ensure that your system logs the original entry data before any major user actions like edits or deletions for auditing purposes, you can implement an audit trail feature. This will involve creating an audit_logs table in your database that captures relevant details whenever modifications occur within your major modules (e.g., medical visits and incident reporting).
+
+Here’s how you can implement this:
+
+    Create an Audit Log Table: This table will store details about each action—what was done, who did it, when it was done, and any relevant details.
+
+    This is similar to what you already have in your 
+
+:
+
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  action: varchar("action").notNull(), // create, update, delete, etc.
+  resourceType: varchar("resource_type").notNull(), // e.g., medical_visit, incident
+  resourceId: varchar("resource_id"), // ID of the affected resource
+  originalData: jsonb("original_data"), // Original data before update or delete
+  details: jsonb("details"), // Additional context
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+Capture Changes: Modify the existing handlers for updates and deletes to log the original data into this table right before making the changes.
+
+For example, in your handlers for medical visit and incident updates, you would add a section to insert into the audit_logs table:
+
+// Update medical visit
+app.put('/api/medical-visits/:id', hybridAuthMiddleware, async (req, res) => {
+  const visitId = req.params.id;
+  const newData = req.body;
+
+  // Fetch original data
+  const originalData = await storage.getMedicalVisit(visitId);
+
+  // Log original data before updating
+  await storage.insertAuditLog({
+    userId: req.user.id,
+    action: 'update',
+    resourceType: 'medical_visit',
+    resourceId: visitId,
+    originalData: originalData,
+    details: newData, // You can include details of the change here
+  });
+
+  // Proceed with actual update
+  const updatedVisit = await storage.updateMedicalVisit(visitId, newData);
+  res.json(updatedVisit);
+});
+
+// Delete incident
+app.delete('/api/incidents/:id', hybridAuthMiddleware, async (req, res) => {
+  const incidentId = req.params.id;
+
+  // Fetch original data
+  const originalData = await storage.getIncident(incidentId);
+
+  // Log original data before deletion
+  await storage.insertAuditLog({
+    userId: req.user.id,
+    action: 'delete',
+    resourceType: 'incident',
+    resourceId: incidentId,
+    originalData: originalData,
+  });
+
+      // Proceed with actual deletion
+      await storage.deleteIncident(incidentId);
+      res.status(204).send();
+    });
+
+    Ensure Proper Handling: Make sure that every major module where changes happen (e.g., medical visits, incidents, duties) follows a similar pattern to log their original data into the audit logs.
+
+By implementing this audit trail feature, you ensure that original data is preserved before any important changes, allowing for a robust auditing mechanism across your application's major functionalities.

@@ -1,0 +1,9 @@
+/* Patient portal — self-contained styles (import once from App.tsx). */
+@import "./fonts.css";
+@import "./shell.css";
+@import "./base.css";
+@import "./components.css";
+@import "./shadcn.css";
+@import "./tables.css";
+@import "./tabs.css";
+@import "./telecare.css";
