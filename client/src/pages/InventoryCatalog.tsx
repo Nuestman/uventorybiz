@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,9 @@ import { ArrowLeft, BookOpen, MoreHorizontal, Pencil, Plus, Search, Trash2 } fro
 import { useToast } from "@/hooks/use-toast";
 import MobileNav from "@/components/MobileNav";
 import { InventoryCategoriesDialog } from "@/components/InventoryCategoriesDialog";
+import { ListPagination } from "@/components/ListPagination";
+
+const PAGE_SIZE = 20;
 
 type InventoryCategoryOption = {
   id: string;
@@ -118,6 +121,7 @@ export default function InventoryCatalog() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -227,18 +231,34 @@ export default function InventoryCatalog() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const filtered = items.filter((item) => {
-    const q = searchTerm.trim().toLowerCase();
-    const matchesSearch =
-      !q ||
-      item.itemName.toLowerCase().includes(q) ||
-      item.itemCode.toLowerCase().includes(q) ||
-      (item.barcode && item.barcode.toLowerCase().includes(q)) ||
-      (item.brand && item.brand.toLowerCase().includes(q));
-    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-    const matchesStatus = statusFilter === "all" || item.status === statusFilter;
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  const filtered = useMemo(() => {
+    return items.filter((item) => {
+      const q = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        item.itemName.toLowerCase().includes(q) ||
+        item.itemCode.toLowerCase().includes(q) ||
+        (item.barcode && item.barcode.toLowerCase().includes(q)) ||
+        (item.brand && item.brand.toLowerCase().includes(q));
+      const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+      const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+  }, [items, searchTerm, categoryFilter, statusFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, categoryFilter, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
 
   const openCreate = () => {
     setEditing(null);
@@ -382,65 +402,76 @@ export default function InventoryCatalog() {
                 : "No products match your filters."}
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>UoM</TableHead>
-                    <TableHead>Locations</TableHead>
-                    <TableHead>Total qty</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-12" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((item, index) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{item.itemCode}</Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        <div>{item.itemName}</div>
-                        {item.barcode && (
-                          <div className="text-xs text-muted-foreground">Barcode: {item.barcode}</div>
-                        )}
-                      </TableCell>
-                      <TableCell>{categoryLabel(item.category)}</TableCell>
-                      <TableCell>{item.unitOfMeasure}</TableCell>
-                      <TableCell>{item.stockLocationCount}</TableCell>
-                      <TableCell>{item.totalStock}</TableCell>
-                      <TableCell>{statusBadge(item.status)}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEdit(item)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => setDeleteTarget(item)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+            <div className="space-y-4">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>UoM</TableHead>
+                      <TableHead>Locations</TableHead>
+                      <TableHead>Total qty</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="w-12" />
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {paged.map((item, index) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">
+                          {(page - 1) * PAGE_SIZE + index + 1}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{item.itemCode}</Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          <div>{item.itemName}</div>
+                          {item.barcode && (
+                            <div className="text-xs text-muted-foreground">Barcode: {item.barcode}</div>
+                          )}
+                        </TableCell>
+                        <TableCell>{categoryLabel(item.category)}</TableCell>
+                        <TableCell>{item.unitOfMeasure}</TableCell>
+                        <TableCell>{item.stockLocationCount}</TableCell>
+                        <TableCell>{item.totalStock}</TableCell>
+                        <TableCell>{statusBadge(item.status)}</TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEdit(item)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleteTarget(item)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <ListPagination
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={filtered.length}
+                onPageChange={setPage}
+                itemLabel="products"
+              />
             </div>
           )}
         </CardContent>

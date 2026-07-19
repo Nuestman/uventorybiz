@@ -124,8 +124,11 @@ Rejecting records the reviewer + optional notes; no credentials are sent.
   order) or **report it as not received**; for delivery orders the courier's
   name/phone is shown. After staff confirm an order, the UI tells the customer to
   call the business to cancel. On completed orders the customer can **request a
-  return** (if the business has returns enabled). The "My orders" sidebar item
-  shows a badge with unread order-update notifications.
+  return** (if the business has returns enabled). List UX: status filters
+  (All / Active / Needs action / Completed / Cancelled), status dropdown, and
+  client-side pagination (`PortalPagination`). The sidebar does **not** badge
+  My orders for unread order-update notifications (Messages keeps the messaging
+  unread badge).
 - **Purchase orders & invoices** (suppliers) — POs issued to them (approved and
   later stages only; drafts stay hidden), PO detail with line items and received
   quantities, and invoice submission (against a PO or standalone) with status
@@ -136,9 +139,9 @@ Rejecting records the reviewer + optional notes; no credentials are sent.
   **Support** → `/portal/support` when the platform `tickets` flag is on. Creates staff
   tickets (`source=portal`, category `it-systems`); APIs under `/api/portal/support-tickets`.
   Staff see them in **Staff Tickets** and get `portal_system_issue` notifications.
-- **Secure messaging** — feature-flagged (`features_json.messaging`); currently only
-  available to legacy accounts with an employee bridge, pending the customer/supplier
-  messaging refactor.
+- **Secure messaging** — feature-flagged (`features_json.messaging` + platform `messaging` flag). Available to customer and supplier portal accounts (**PortalUser**-centric threads; no patient bridge). Staff inbox is under **Operations → Messages** (`/messages`), including staff↔staff threads. Staff recipient picker: `GET /api/messaging/portal-recipients`.
+- **UI chrome** — desktop top bar breadcrumbs (`Customer & supplier portal › {page}`); see also staff/Super Admin trails in [APP_NAVIGATION_AND_BREADCRUMBS.md](./APP_NAVIGATION_AND_BREADCRUMBS.md).
+
 - **Appointments** — legacy module; disabled platform-wide via the `appointments`
   platform feature flag.
 

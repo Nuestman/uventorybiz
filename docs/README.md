@@ -1,8 +1,8 @@
 # uventorybiz — Documentation
 
-**Package version:** 1.1.0 (see repository root `package.json`)  
+**Package version:** 1.2.0 (see repository root `package.json`)  
 **Changelog:** [CHANGELOG.md](./CHANGELOG.md)  
-**Status:** `1.1.0` — business assets, fleet rename, portal support, inventory multi-location  
+**Status:** `1.2.0` — breadcrumbs, list pagination, portal orders UX, portal-centric messaging  
 **Last documentation review:** July 19, 2026
 
 ## Start here
@@ -16,6 +16,7 @@
 | [NEXT_DEV_SESSION.md](./NEXT_DEV_SESSION.md) | Resume checklist |
 | [POS_GUIDE.md](./POS_GUIDE.md) | Point of sale |
 | [PORTAL_GUIDE.md](./PORTAL_GUIDE.md) | Customer / supplier portal |
+| [APP_NAVIGATION_AND_BREADCRUMBS.md](./APP_NAVIGATION_AND_BREADCRUMBS.md) | Staff / Super Admin breadcrumbs & list pagination |
 | [DRIZZLE_MIGRATIONS.md](./DRIZZLE_MIGRATIONS.md) | Schema migrations & seeds |
 
 ## Inventory & fleet
@@ -30,6 +31,7 @@
 ## Other guides
 
 - [RBAC.md](./RBAC.md) — roles and access
+- [MESSAGING_MODULE_PLAN.md](./MESSAGING_MODULE_PLAN.md) — secure messaging (portal + staff)
 - [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) / [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md)
 - [LOCAL_DEVELOPMENT_SETUP.md](./LOCAL_DEVELOPMENT_SETUP.md)
 - [SESSION_SECURITY_AND_MFA.md](./SESSION_SECURITY_AND_MFA.md)

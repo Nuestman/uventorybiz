@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from '@/hooks/use-toast';
 import MobileNav from '@/components/MobileNav';
 import { useTenantSettings } from '@/hooks/useTenantSettings';
+import { ListPagination } from '@/components/ListPagination';
+
+const PAGE_SIZE = 20;
 
 interface InventoryTransaction {
   id: string;
@@ -99,6 +102,7 @@ export default function InventoryTransactions() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedItem, setSelectedItem] = useState<string>('all');
+  const [page, setPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -345,16 +349,31 @@ export default function InventoryTransactions() {
     return quantity > 0 ? `+${quantity}` : `${quantity}`;
   };
 
-  // Filter transactions
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = transaction.itemName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.itemCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.reference?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = selectedType === 'all' || transaction.transactionType === selectedType;
-    const matchesItem = selectedItem === 'all' || transaction.itemId === selectedItem;
-    
-    return matchesSearch && matchesType && matchesItem;
-  });
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((transaction) => {
+      const matchesSearch =
+        transaction.itemName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.itemCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.reference?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = selectedType === 'all' || transaction.transactionType === selectedType;
+      const matchesItem = selectedItem === 'all' || transaction.itemId === selectedItem;
+      return matchesSearch && matchesType && matchesItem;
+    });
+  }, [transactions, searchTerm, selectedType, selectedItem]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedType, selectedItem]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / PAGE_SIZE));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const pagedTransactions = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredTransactions.slice(start, start + PAGE_SIZE);
+  }, [filteredTransactions, page]);
 
   return (
     <div className="space-y-6 p-4 sm:p-6 pb-20 md:pb-8 bg-uventorybiz-light-gray">
@@ -433,7 +452,7 @@ export default function InventoryTransactions() {
             Complete log of all inventory movements
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-0 sm:p-6">
+        <CardContent className="p-0 sm:p-6 space-y-4">
           <div className="overflow-auto max-h-[600px]">
             <Table className="min-w-[800px]">
               <TableHeader>
@@ -465,10 +484,10 @@ export default function InventoryTransactions() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredTransactions.map((transaction, index) => (
+                  pagedTransactions.map((transaction, index) => (
                     <TableRow key={transaction.id} data-testid={`row-transaction-${transaction.id}`}>
                       <TableCell className="font-medium">
-                        {index + 1}
+                        {(page - 1) * PAGE_SIZE + index + 1}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -534,6 +553,17 @@ export default function InventoryTransactions() {
               </TableBody>
             </Table>
           </div>
+          {!isLoading && filteredTransactions.length > 0 ? (
+            <div className="px-4 sm:px-0 pb-4 sm:pb-0">
+              <ListPagination
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={filteredTransactions.length}
+                onPageChange={setPage}
+                itemLabel="transactions"
+              />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

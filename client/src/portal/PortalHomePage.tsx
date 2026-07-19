@@ -61,7 +61,7 @@ export default function PortalHomePage() {
   const partyLabel = session?.user.partyType === "supplier" ? "supplier" : "customer";
 
   const apptsEnabled = !!session?.features.appointments && hasPatientBridge;
-  const messagingEnabled = !!session?.features.messaging && hasPatientBridge;
+  const messagingEnabled = !!session?.features.messaging;
   const { data: messagingUnread } = useMessagingUnreadCount("portal", messagingEnabled);
   const messagesUnreadCount = messagingUnread?.count ?? 0;
 

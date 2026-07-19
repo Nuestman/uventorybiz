@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { Plus, Search, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import MobileNav from '@/components/MobileNav';
 import { BulkCsvImportDialog } from '@/components/BulkCsvImportDialog';
+import { ListPagination } from '@/components/ListPagination';
 
 interface Customer {
   id: string;
@@ -38,10 +39,13 @@ const emptyForm = {
   notes: '',
 };
 
+const PAGE_SIZE = 20;
+
 export default function Customers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -113,16 +117,31 @@ export default function Customers() {
     onError: (e: Error) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
   });
 
-  const filtered = customers.filter((c) => {
-    if (!searchTerm) return true;
+  const filtered = useMemo(() => {
+    if (!searchTerm) return customers;
     const term = searchTerm.toLowerCase();
-    return (
-      `${c.firstName} ${c.lastName}`.toLowerCase().includes(term) ||
-      (c.email && c.email.toLowerCase().includes(term)) ||
-      (c.phone && c.phone.toLowerCase().includes(term)) ||
-      (c.customerNumber && c.customerNumber.toLowerCase().includes(term))
+    return customers.filter(
+      (c) =>
+        `${c.firstName} ${c.lastName}`.toLowerCase().includes(term) ||
+        (c.email && c.email.toLowerCase().includes(term)) ||
+        (c.phone && c.phone.toLowerCase().includes(term)) ||
+        (c.customerNumber && c.customerNumber.toLowerCase().includes(term)),
     );
-  });
+  }, [customers, searchTerm]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
 
   const openEdit = (c: Customer) => {
     setEditing(c);
@@ -219,66 +238,78 @@ export default function Customers() {
           {isLoading ? (
             <div className="py-8 text-center text-muted-foreground">Loading customers...</div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Customer #</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[80px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((c, index) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
-                    <TableCell className="font-mono text-xs">{c.customerNumber || '—'}</TableCell>
-                    <TableCell className="font-medium">{c.firstName} {c.lastName}</TableCell>
-                    <TableCell>{c.email || '—'}</TableCell>
-                    <TableCell>{c.phone || '—'}</TableCell>
-                    <TableCell>
-                      <Badge variant={c.status === 'active' ? 'default' : 'secondary'}>
-                        {c.status === 'active' ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(c)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setDeleteTarget(c)} className="text-red-600">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filtered.length === 0 && (
+            <>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      {customers.length === 0 ? 'No customers yet. Add one to attach to sales and portal access.' : 'No matches for your search.'}
-                    </TableCell>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Customer #</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[80px]">Actions</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paged.map((c, index) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium text-muted-foreground tabular-nums">
+                        {(page - 1) * PAGE_SIZE + index + 1}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{c.customerNumber || '—'}</TableCell>
+                      <TableCell className="font-medium">{c.firstName} {c.lastName}</TableCell>
+                      <TableCell>{c.email || '—'}</TableCell>
+                      <TableCell>{c.phone || '—'}</TableCell>
+                      <TableCell>
+                        <Badge variant={c.status === 'active' ? 'default' : 'secondary'}>
+                          {c.status === 'active' ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEdit(c)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setDeleteTarget(c)} className="text-red-600">
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        {customers.length === 0
+                          ? 'No customers yet. Add one to attach to sales and portal access.'
+                          : 'No matches for your search.'}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+              <ListPagination
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={filtered.length}
+                onPageChange={setPage}
+                itemLabel="customers"
+              />
+            </>
           )}
         </CardContent>
       </Card>
 
-      {/* Create dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="flex max-h-[90vh] w-[95vw] max-w-[500px] flex-col sm:w-full">
           <DialogHeader className="flex-shrink-0">
@@ -290,44 +321,60 @@ export default function Customers() {
           </div>
           <DialogFooter className="flex-shrink-0 border-t pt-4">
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-            <Button onClick={() => createMutation.mutate(form)} disabled={!canSubmit || createMutation.isPending} style={{ backgroundColor: 'var(--uventorybiz-navy)', color: 'white' }} className="hover:opacity-90">
+            <Button
+              onClick={() => createMutation.mutate(form)}
+              disabled={!canSubmit || createMutation.isPending}
+              style={{ backgroundColor: 'var(--uventorybiz-navy)', color: 'white' }}
+              className="hover:opacity-90"
+            >
               {createMutation.isPending ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit dialog */}
       <Dialog open={!!editing} onOpenChange={(open) => { if (!open) setEditing(null); }}>
         <DialogContent className="flex max-h-[90vh] w-[95vw] max-w-[500px] flex-col sm:w-full">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>Edit customer</DialogTitle>
-            <DialogDescription>{editing?.customerNumber ? `Customer ${editing.customerNumber}` : 'Update customer details.'}</DialogDescription>
+            <DialogDescription>
+              {editing?.customerNumber ? `Customer ${editing.customerNumber}` : 'Update customer details.'}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 overflow-y-auto min-h-0 flex-1 pr-1 -mr-1">
             {formFields}
           </div>
           <DialogFooter className="flex-shrink-0 border-t pt-4">
             <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
-            <Button onClick={() => editing && updateMutation.mutate({ id: editing.id, ...form })} disabled={!canSubmit || updateMutation.isPending} style={{ backgroundColor: 'var(--uventorybiz-navy)', color: 'white' }} className="hover:opacity-90">
+            <Button
+              onClick={() => editing && updateMutation.mutate({ id: editing.id, ...form })}
+              disabled={!canSubmit || updateMutation.isPending}
+              style={{ backgroundColor: 'var(--uventorybiz-navy)', color: 'white' }}
+              className="hover:opacity-90"
+            >
               {updateMutation.isPending ? 'Updating...' : 'Update'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete customer?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete &quot;{deleteTarget ? `${deleteTarget.firstName} ${deleteTarget.lastName}` : ''}&quot;. Sales history that references this customer may be affected. This cannot be undone.
+              This will permanently delete &quot;
+              {deleteTarget ? `${deleteTarget.firstName} ${deleteTarget.lastName}` : ''}
+              &quot;. Sales history that references this customer may be affected. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)} disabled={deleteMutation.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>

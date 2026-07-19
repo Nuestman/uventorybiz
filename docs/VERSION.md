@@ -1,6 +1,6 @@
 # uventorybiz — Version Information
 
-## Current package version: 1.1.0
+## Current package version: 1.2.0
 
 **Product:** uventorybiz — multi-tenant B2B inventory + POS  
 **Updated:** July 19, 2026  
@@ -12,7 +12,15 @@ See [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
 ## Version History
 
-### Version 1.1.0 (current package)
+### Version 1.2.0 (current package)
+
+- **Release type:** Minor — navigation breadcrumbs, list pagination, portal orders UX, portal-centric messaging
+- **Date:** 2026-07-19
+- **Highlights:** Staff/Super Admin breadcrumbs; list + portal pagination; My orders filters; messaging restore (PortalUser / staff threads, Operations → Messages)
+- **Schema:** no new journal entries (still through `0025`)
+- **Docs:** [APP_NAVIGATION_AND_BREADCRUMBS.md](./APP_NAVIGATION_AND_BREADCRUMBS.md)
+
+### Version 1.1.0
 
 - **Release type:** Minor — business assets, fleet rename, portal support, session/messaging controls
 - **Date:** 2026-07-19

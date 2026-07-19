@@ -53,7 +53,6 @@ export default function PatientMessagingPanel({ patientId, patientName }: Props)
             </select>
           ) : null}
           <MessagingNewThreadDialog
-            defaultPatientId={patientId}
             trigger={
               <Button type="button" size="sm" variant="outline">
                 New

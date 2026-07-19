@@ -42,6 +42,7 @@ import { SessionTimeoutWarning } from "@/components/SessionTimeoutWarning";
 import { superAdminNavSections } from "@/config/superAdminNav";
 import { Badge } from "@/components/ui/badge";
 import { BrandLogo } from "@/components/BrandLogo";
+import { AppBreadcrumbs } from "@/components/AppBreadcrumbs";
 
 interface SuperAdminLayoutProps {
   children: ReactNode;
@@ -374,54 +375,12 @@ function SuperAdminSidebar() {
 function SuperAdminHeaderContent() {
   const { user, logout } = useAuth();
   const authUser = user;
-  const [location] = useLocation();
-  const { state } = useSidebar();
-
-  const isDashboard =
-    location === "/super-admin/dashboard" || location.startsWith("/super-admin/dashboard/");
-  const isConsole =
-    location === "/super-admin" ||
-    (location.startsWith("/super-admin/") &&
-      !location.startsWith("/super-admin/dashboard") &&
-      !location.startsWith("/super-admin/pitch-why") &&
-      !location.startsWith("/super-admin/pitch") &&
-      !location.startsWith("/super-admin/concept-note") &&
-      !location.startsWith("/super-admin/business-proposal"));
 
   return (
-    <div className="flex items-center h-16 px-4">
-      <div className="xl:hidden">
-        <BrandLogo variant="full" alt="uventorybiz" className="h-8 w-auto object-contain" />
-      </div>
+    <div className="flex items-center h-16 px-4 gap-4 min-w-0">
+      <AppBreadcrumbs variant="super-admin" className="flex-1" />
 
-      <div className={`${state === "expanded" ? "hidden" : "hidden xl:block"}`}>
-        <BrandLogo variant="full" alt="uventorybiz" className="h-8 w-auto object-contain" />
-      </div>
-
-      <nav
-        className={`${
-          state === "expanded" ? "hidden" : "hidden xl:flex"
-        } items-center space-x-8 h-16 flex-1 ml-4`}
-      >
-        <Link
-          href="/super-admin/dashboard"
-          className={`nav-link-enhanced font-medium px-4 ${
-            isDashboard ? "active text-uventorybiz-coral" : "text-uventorybiz-gray hover:text-uventorybiz-coral"
-          }`}
-        >
-          Dashboard
-        </Link>
-        <Link
-          href="/super-admin"
-          className={`nav-link-enhanced font-medium px-4 ${
-            isConsole ? "active text-uventorybiz-coral" : "text-uventorybiz-gray hover:text-uventorybiz-coral"
-          }`}
-        >
-          Console
-        </Link>
-      </nav>
-
-      <div className="flex items-center space-x-4 ml-auto">
+      <div className="flex items-center space-x-4 shrink-0 ml-auto">
         <Button variant="ghost" size="sm" className="hidden md:flex">
           <Bell className="h-4 w-4 text-uventorybiz-gray" />
         </Button>

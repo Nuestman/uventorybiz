@@ -4,7 +4,7 @@ Multi-tenant **B2B business management** with inventory and point of sale.
 
 | | |
 |--|--|
-| **Package** | `uventorybiz@1.1.0` |
+| **Package** | `uventorybiz@1.2.0` |
 | **Repo** | https://github.com/Nuestman/uventorybiz |
 | **Stack** | Express + React + Drizzle + Neon PostgreSQL + Railway |
 | **Origin** | Adapted from MineAid HMS code; versioning resets at **1.0.0** (MineAid history in `purged/docs/`) |
@@ -18,7 +18,8 @@ Multi-tenant **B2B business management** with inventory and point of sale.
 - **Portal** — customers & suppliers, including system-issue support tickets ([PORTAL_GUIDE.md](./PORTAL_GUIDE.md))
 - **Operations** — appointments, incidents, duties, tickets (asset picker, duplicate-category prompt)
 - **ShiftOver**, **Fleet** (`/assets/fleet/*`), **POC laboratory** (instant tests), **Employee wellbeing**
-- **Auth / tenancy / notifications / SOP / reports** (non-clinical); messaging behind platform flag (default off)
+- **Auth / tenancy / notifications / SOP / reports** (non-clinical); messaging behind platform flag (default off); portal-centric threads when enabled
+- **Navigation** — staff / Super Admin breadcrumbs ([APP_NAVIGATION_AND_BREADCRUMBS.md](./APP_NAVIGATION_AND_BREADCRUMBS.md))
 
 See [CHANGELOG.md](./CHANGELOG.md) · [MOBILE_STORE_AND_FLEET_INVENTORY.md](./MOBILE_STORE_AND_FLEET_INVENTORY.md)
 

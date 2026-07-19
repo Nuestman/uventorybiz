@@ -21,8 +21,7 @@ import { PortalMobileSidebar } from "./PortalMobileSidebar";
 import { PortalDesktopTopBar } from "./PortalDesktopTopBar";
 import { buildPortalNav, isPortalNavActive } from "./portalNav";
 import { usePortalLogout, usePortalSession } from "./usePortalSession";
-import { useUnreadOrderUpdatesCount } from "./usePortalNotifications";
-import { PORTAL_DASHBOARD, PORTAL_ORDERS, portalSignInUrl } from "./portalRoutes";
+import { PORTAL_DASHBOARD, portalSignInUrl } from "./portalRoutes";
 import { PORTAL_PRIMARY_FALLBACK } from "./portalUi";
 import { usePortalBodyClass } from "./usePortalBodyClass";
 import { useFeatureEnabled } from "@/hooks/useFeatureFlags";
@@ -38,7 +37,6 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
   const brandName = session?.tenant.appName?.trim() || session?.tenant.name || "Customer & supplier portal";
   const { data: messagingUnread } = useMessagingUnreadCount("portal", messagingEnabled);
   const messagesUnreadCount = messagingUnread?.count ?? 0;
-  const ordersUnreadCount = useUnreadOrderUpdatesCount(isAuthenticated && !!session?.user.customerId);
 
   const sessionForNav =
     session && session.features.messaging !== messagingEnabled
@@ -51,14 +49,17 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
   const handleSignOut = () => {
     logout.mutate(undefined, {
       onSettled: () => {
-            window.location.href = portalSignInUrl({ error: "session_expired" });
+        window.location.href = portalSignInUrl({ error: "session_expired" });
       },
     });
   };
 
   return (
     <MessagingRealtimeProvider audience="portal" enabled={messagingEnabled}>
-      <div className="portal-root portal-page min-h-screen bg-[#f4f7f9] flex" style={{ ["--portal-primary" as string]: primary }}>
+      <div
+        className="portal-root portal-page min-h-screen bg-[#f4f7f9] flex"
+        style={{ ["--portal-primary" as string]: primary }}
+      >
         <SessionTimeoutWarning
           variant="portal"
           enabled={isAuthenticated}
@@ -78,14 +79,12 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
             primary={primary}
             brandName={brandName}
             messagesUnreadCount={messagesUnreadCount}
-            ordersUnreadCount={ordersUnreadCount}
             onSignOut={handleSignOut}
             signOutPending={logout.isPending}
           />
         ) : null}
 
         <div className="flex flex-col flex-1 min-h-screen md:ml-[272px] min-w-0">
-          {/* Mobile header */}
           <header
             className="md:hidden border-b bg-white shadow-sm sticky top-0 z-40"
             style={{ borderBottomColor: `${primary}33` }}
@@ -99,7 +98,6 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                     primary={primary}
                     brandName={brandName}
                     messagesUnreadCount={messagesUnreadCount}
-                    ordersUnreadCount={ordersUnreadCount}
                     onSignOut={handleSignOut}
                     signOutPending={logout.isPending}
                   />
@@ -107,21 +105,21 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                   <div className="w-9 shrink-0 md:hidden" aria-hidden />
                 )}
                 <Link href={PORTAL_DASHBOARD} className="flex items-center gap-2 min-w-0">
-                {session?.tenant.logoUrl ? (
-                  <img src={session.tenant.logoUrl} alt="" className="h-9 w-9 object-contain rounded" />
-                ) : (
-                  <div
-                    className="h-9 w-9 rounded-lg flex items-center justify-center text-white text-sm font-bold shrink-0"
-                    style={{ backgroundColor: primary }}
-                  >
-                    {brandName.charAt(0)}
+                  {session?.tenant.logoUrl ? (
+                    <img src={session.tenant.logoUrl} alt="" className="h-9 w-9 object-contain rounded" />
+                  ) : (
+                    <div
+                      className="h-9 w-9 rounded-lg flex items-center justify-center text-white text-sm font-bold shrink-0"
+                      style={{ backgroundColor: primary }}
+                    >
+                      {brandName.charAt(0)}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">{brandName}</p>
+                    <p className="text-xs text-uventorybiz-gray truncate">Customer & supplier portal</p>
                   </div>
-                )}
-                <div className="min-w-0">
-                  <p className="font-semibold text-gray-900 truncate">{brandName}</p>
-                  <p className="text-xs text-uventorybiz-gray truncate">Customer & supplier portal</p>
-                </div>
-              </Link>
+                </Link>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {messagingEnabled ? <PortalMessagingHeaderLink /> : null}
@@ -181,9 +179,10 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
             />
           ) : null}
 
-          <main className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 lg:px-8 lg:py-8 pb-28 md:pb-8">{children}</main>
+          <main className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 lg:px-8 lg:py-8 pb-28 md:pb-8">
+            {children}
+          </main>
 
-          {/* Mobile bottom nav */}
           <nav
             className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80"
             aria-label="Portal sections"
@@ -205,14 +204,6 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                           style={{ backgroundColor: primary }}
                         >
                           {messagesUnreadCount > 99 ? "99+" : messagesUnreadCount}
-                        </Badge>
-                      ) : null}
-                      {href === PORTAL_ORDERS && ordersUnreadCount > 0 ? (
-                        <Badge
-                          className="absolute top-0.5 right-1 h-4 min-w-[1rem] px-1 text-[9px]"
-                          style={{ backgroundColor: primary }}
-                        >
-                          {ordersUnreadCount > 99 ? "99+" : ordersUnreadCount}
                         </Badge>
                       ) : null}
                       <span className="truncate max-w-[4.5rem]">{label.split(" ")[0]}</span>

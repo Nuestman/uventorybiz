@@ -254,6 +254,7 @@ export function useCreateConversation(audience: Audience) {
   return useMutation({
     mutationFn: async (body: {
       patientId?: string;
+      portalUserId?: string;
       staffUserIds?: string[];
       subject?: string | null;
       bodyText?: string;

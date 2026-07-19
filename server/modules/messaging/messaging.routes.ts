@@ -43,6 +43,13 @@ export function createStaffMessagingRouter(deps: StaffMessagingRoutesDeps): Rout
     req.on("close", unsubscribe);
   });
 
+  router.get("/messaging/portal-recipients", authMiddleware, requireClinicalAccess, async (req: any, res) => {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return sendError(res, 400, "User has no tenant association");
+    const recipients = await service.listPortalRecipients(tenantId);
+    res.json(recipients);
+  });
+
   router.get("/messaging/conversations", authMiddleware, requireClinicalAccess, async (req: any, res) => {
     const tenantId = req.user?.tenantId;
     const userId = req.user?.id;
@@ -90,10 +97,18 @@ export function createStaffMessagingRouter(deps: StaffMessagingRoutesDeps): Rout
       const tenantId = req.user?.tenantId;
       const userId = req.user?.id;
       if (!tenantId || !userId) return sendError(res, 400, "User has no tenant association");
-      const { patientId, subject, bodyText, bodyHtml, clientMessageId, appointmentId, staffUserIds } =
-        req.body;
+      const {
+        patientId,
+        portalUserId,
+        subject,
+        bodyText,
+        bodyHtml,
+        clientMessageId,
+        appointmentId,
+        staffUserIds,
+      } = req.body;
 
-      if (staffUserIds?.length && !patientId) {
+      if (staffUserIds?.length && !patientId && !portalUserId) {
         const result = await service.createStaffInternalConversation(tenantId, userId, {
           staffUserIds,
           subject,
@@ -111,9 +126,12 @@ export function createStaffMessagingRouter(deps: StaffMessagingRoutesDeps): Rout
         return res.status(201).json(result.data);
       }
 
-      if (!patientId) return sendError(res, 400, "patientId is required");
+      if (!portalUserId && !patientId) {
+        return sendError(res, 400, "portalUserId is required");
+      }
 
       const result = await service.createStaffConversation(tenantId, userId, {
+        portalUserId,
         patientId,
         subject,
         bodyText,
@@ -325,7 +343,7 @@ export function mountPortalMessagingRoutes(deps: PortalMessagingRoutesDeps): Rou
     requirePortalMessagingFeature,
     async (req: any, res) => {
       const p = req.portal!;
-      const count = await service.portalUnreadCount(p.tenantId, p.patientId, p.portalUserId);
+      const count = await service.portalUnreadCount(p.tenantId, p.portalUserId);
       res.json({ count });
     },
   );
@@ -364,7 +382,6 @@ export function mountPortalMessagingRoutes(deps: PortalMessagingRoutesDeps): Rou
       }
       const result = await service.lookupPortalConversation(
         p.tenantId,
-        p.patientId,
         p.portalUserId,
         { appointmentId },
       );
@@ -379,7 +396,7 @@ export function mountPortalMessagingRoutes(deps: PortalMessagingRoutesDeps): Rou
     requirePortalMessagingFeature,
     async (req: any, res) => {
       const p = req.portal!;
-      const result = await service.listPortalInbox(p.tenantId, p.patientId, p.portalUserId);
+      const result = await service.listPortalInbox(p.tenantId, p.portalUserId);
       if (!result.ok) return sendError(res, 500, result.error);
       res.json(result.data);
     },
@@ -394,13 +411,14 @@ export function mountPortalMessagingRoutes(deps: PortalMessagingRoutesDeps): Rou
       const p = req.portal!;
       const { subject, bodyText, bodyHtml, clientMessageId, messagingConsentAccepted, appointmentId, assignedStaffUserId } =
         req.body;
-      const result = await service.createPortalConversation(p.tenantId, p.patientId, p.portalUserId, {
+      const result = await service.createPortalConversation(p.tenantId, p.portalUserId, {
         subject,
         bodyText,
         bodyHtml,
         clientMessageId,
         messagingConsentAccepted,
         appointmentId,
+        patientId: p.patientId ?? null,
         assignedStaffUserId,
       });
       if (!result.ok) {
@@ -423,7 +441,6 @@ export function mountPortalMessagingRoutes(deps: PortalMessagingRoutesDeps): Rou
       if (format !== "csv") return sendError(res, 400, "Only csv export is supported");
       const result = await service.exportPortalThreadCsv(
         p.tenantId,
-        p.patientId,
         p.portalUserId,
         req.params.id,
       );
@@ -446,7 +463,6 @@ export function mountPortalMessagingRoutes(deps: PortalMessagingRoutesDeps): Rou
       const result = await service.getPortalConversation(
         p.tenantId,
         req.params.id,
-        p.patientId,
         p.portalUserId,
       );
       if (!result.ok) return sendError(res, result.code === "NOT_FOUND" ? 404 : 500, result.error);
@@ -464,7 +480,7 @@ export function mountPortalMessagingRoutes(deps: PortalMessagingRoutesDeps): Rou
       const result = await service.listMessages(
         p.tenantId,
         req.params.id,
-        { type: "portal", portalUserId: p.portalUserId, patientId: p.patientId },
+        { type: "portal", portalUserId: p.portalUserId },
         since,
       );
       if (!result.ok) return sendError(res, result.code === "NOT_FOUND" ? 404 : 500, result.error);
@@ -481,7 +497,6 @@ export function mountPortalMessagingRoutes(deps: PortalMessagingRoutesDeps): Rou
       const p = req.portal!;
       const result = await service.sendPortalMessage(
         p.tenantId,
-        p.patientId,
         p.portalUserId,
         req.params.id,
         req.body,
@@ -505,7 +520,6 @@ export function mountPortalMessagingRoutes(deps: PortalMessagingRoutesDeps): Rou
       const p = req.portal!;
       const result = await service.deletePortalMessage(
         p.tenantId,
-        p.patientId,
         p.portalUserId,
         req.params.id,
         req.params.messageId,
@@ -529,7 +543,6 @@ export function mountPortalMessagingRoutes(deps: PortalMessagingRoutesDeps): Rou
       if (req.body.format !== "print") return sendError(res, 400, "Unsupported format");
       const result = await service.ackPortalThreadPrintExport(
         p.tenantId,
-        p.patientId,
         p.portalUserId,
         req.params.id,
       );
@@ -547,7 +560,6 @@ export function mountPortalMessagingRoutes(deps: PortalMessagingRoutesDeps): Rou
       const p = req.portal!;
       const result = await service.markPortalRead(
         p.tenantId,
-        p.patientId,
         p.portalUserId,
         req.params.id,
         req.body.messageId,
@@ -570,7 +582,7 @@ export function mountPortalMessagingRoutes(deps: PortalMessagingRoutesDeps): Rou
         p.tenantId,
         req.params.id,
         req.params.messageId,
-        { type: "portal", portalUserId: p.portalUserId, patientId: p.patientId },
+        { type: "portal", portalUserId: p.portalUserId },
         {
           buffer: file.buffer,
           originalname: file.originalname,

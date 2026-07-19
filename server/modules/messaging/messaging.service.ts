@@ -182,8 +182,49 @@ async function notifyPortalPatientInApp(
     tenantId,
     portalUserId: portalUser.id,
     conversationId,
-    tenantAppName: tenant?.appName?.trim() || tenant?.name || "Your clinic",
+    tenantAppName: tenant?.appName?.trim() || tenant?.name || "Your business",
   });
+}
+
+async function notifyPortalParticipantInApp(
+  storage: IStorage,
+  tenantId: string,
+  portalUserId: string,
+  conversationId: string,
+): Promise<void> {
+  const tenant = await storage.getTenant(tenantId);
+  await notifyPortalUserInApp({
+    tenantId,
+    portalUserId,
+    conversationId,
+    tenantAppName: tenant?.appName?.trim() || tenant?.name || "Your business",
+  });
+}
+
+async function resolvePortalFacingDisplayName(
+  tenantId: string,
+  conversation: Conversation,
+): Promise<string | null> {
+  if (conversation.type === "staff_internal") {
+    return conversation.subject?.trim() || "Staff thread";
+  }
+  if (conversation.patientId) {
+    return repo.getPatientDisplayName(tenantId, conversation.patientId);
+  }
+  const portalIds = await repo.listPortalParticipantUserIds(conversation.id);
+  if (portalIds[0]) {
+    return repo.getPortalUserDisplayName(tenantId, portalIds[0]);
+  }
+  return "Portal user";
+}
+
+async function portalCanAccessConversation(
+  conversation: Conversation,
+  portalUserId: string,
+): Promise<boolean> {
+  if (!isPatientFacingConversation(conversation.type)) return false;
+  const participant = await repo.findPortalParticipant(conversation.id, portalUserId);
+  return !!participant && !participant.leftAt;
 }
 
 async function resolveAssignedStaffUserId(
@@ -206,7 +247,15 @@ async function messageToDto(
     senderDisplayName = await repo.getStaffDisplayName(message.senderStaffUserId);
   } else if (message.senderType === "portal") {
     senderDisplayName = "You";
-    if (viewer.type === "staff") senderDisplayName = "Portal user";
+    if (viewer.type === "staff") {
+      senderDisplayName = message.senderPortalUserId
+        ? await repo.getPortalUserDisplayName(
+            // tenant resolved via message.tenantId
+            message.tenantId,
+            message.senderPortalUserId,
+          )
+        : "Portal user";
+    }
   }
 
   const isOwn = isOwnMessage(message, viewer);
@@ -292,12 +341,7 @@ export function createMessagingService(storage: IStorage) {
 
         const summaries = await Promise.all(
           rows.map(async (c) => {
-            const patientName =
-              c.type === "staff_internal"
-                ? c.subject?.trim() || "Staff thread"
-                : c.patientId
-                  ? await repo.getPatientDisplayName(tenantId, c.patientId)
-                  : null;
+            const patientName = await resolvePortalFacingDisplayName(tenantId, c);
             const unread = await repo.countUnreadInConversationForStaff(
               c.id,
               staffUserId,
@@ -317,11 +361,10 @@ export function createMessagingService(storage: IStorage) {
 
     async listPortalInbox(
       tenantId: string,
-      patientId: string,
       portalUserId: string,
     ): Promise<MessagingResult<ConversationSummaryDto[]>> {
       try {
-        const rows = await repo.listPortalConversations(tenantId, patientId);
+        const rows = await repo.listPortalConversations(tenantId, portalUserId);
         const summaries = await Promise.all(
           rows.map(async (c) => {
             const unread = await repo.countUnreadInConversationForPortal(c.id, portalUserId);
@@ -337,6 +380,10 @@ export function createMessagingService(storage: IStorage) {
       }
     },
 
+    async listPortalRecipients(tenantId: string) {
+      return repo.listPortalRecipients(tenantId);
+    },
+
     async getStaffConversation(
       tenantId: string,
       conversationId: string,
@@ -346,12 +393,7 @@ export function createMessagingService(storage: IStorage) {
       if (!conversation || !(await staffCanAccessConversation(conversation, staffUserId))) {
         return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
       }
-      const patientName =
-        conversation.type === "staff_internal"
-          ? conversation.subject?.trim() || "Staff thread"
-          : conversation.patientId
-            ? await repo.getPatientDisplayName(tenantId, conversation.patientId)
-            : null;
+      const patientName = await resolvePortalFacingDisplayName(tenantId, conversation);
       const unread = await repo.countUnreadInConversationForStaff(
         conversationId,
         staffUserId,
@@ -366,19 +408,10 @@ export function createMessagingService(storage: IStorage) {
     async getPortalConversation(
       tenantId: string,
       conversationId: string,
-      patientId: string,
       portalUserId: string,
     ): Promise<MessagingResult<ConversationSummaryDto>> {
       const conversation = await repo.findConversationById(tenantId, conversationId);
-      if (
-        !conversation ||
-        conversation.patientId !== patientId ||
-        !isPatientFacingConversation(conversation.type)
-      ) {
-        return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
-      }
-      const participant = await repo.findPortalParticipant(conversationId, portalUserId);
-      if (!participant) {
+      if (!conversation || !(await portalCanAccessConversation(conversation, portalUserId))) {
         return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
       }
       const unread = await repo.countUnreadInConversationForPortal(conversationId, portalUserId);
@@ -388,18 +421,16 @@ export function createMessagingService(storage: IStorage) {
     async listMessages(
       tenantId: string,
       conversationId: string,
-      viewer: { type: "staff"; userId: string } | { type: "portal"; portalUserId: string; patientId: string },
+      viewer: { type: "staff"; userId: string } | { type: "portal"; portalUserId: string },
       since?: string,
     ): Promise<MessagingResult<MessageDto[]>> {
       const conversation = await repo.findConversationById(tenantId, conversationId);
       if (!conversation) return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
 
       if (viewer.type === "portal") {
-        if (conversation.patientId !== viewer.patientId) {
+        if (!(await portalCanAccessConversation(conversation, viewer.portalUserId))) {
           return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
         }
-        const participant = await repo.findPortalParticipant(conversationId, viewer.portalUserId);
-        if (!participant) return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
       } else if (conversation.type === "staff_internal") {
         const participant = await repo.findStaffParticipant(conversationId, viewer.userId);
         if (!participant) return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
@@ -425,7 +456,8 @@ export function createMessagingService(storage: IStorage) {
       tenantId: string,
       staffUserId: string,
       params: {
-        patientId: string;
+        portalUserId?: string;
+        patientId?: string;
         subject?: string | null;
         bodyText?: string;
         bodyHtml?: string | null;
@@ -442,19 +474,40 @@ export function createMessagingService(storage: IStorage) {
       if (!body.ok) return { ok: false, error: body.error, code: "VALIDATION" };
 
       try {
-        const patient = await storage.getPatient(params.patientId, tenantId);
-        if (!patient) return { ok: false, error: "Patient not found", code: "NOT_FOUND" };
+        let portalUser =
+          params.portalUserId
+            ? await repo.findPortalUserById(tenantId, params.portalUserId)
+            : null;
+        let patientId: string | null = null;
 
-        const portalUser = await repo.findPortalUserForPatient(tenantId, params.patientId);
+        if (portalUser) {
+          patientId = portalUser.patientId ?? null;
+        } else if (params.patientId) {
+          const patient = await storage.getPatient(params.patientId, tenantId);
+          if (!patient) return { ok: false, error: "Recipient not found", code: "NOT_FOUND" };
+          patientId = params.patientId;
+          portalUser = await repo.findPortalUserForPatient(tenantId, params.patientId);
+        } else {
+          return { ok: false, error: "portalUserId is required", code: "VALIDATION" };
+        }
+
+        if (!portalUser) {
+          return {
+            ok: false,
+            error: "No active portal account for this recipient",
+            code: "NOT_FOUND",
+          };
+        }
+
         const { conversation, message } = await repo.createStaffPatientConversation({
           tenantId,
-          patientId: params.patientId,
+          patientId,
           staffUserId,
           subject: params.subject,
           bodyText: body.data.bodyText,
           bodyHtml: body.data.bodyHtml,
           clientMessageId: params.clientMessageId,
-          portalUserId: portalUser?.id ?? null,
+          portalUserId: portalUser.id,
           appointmentId: params.appointmentId ?? null,
         });
 
@@ -465,25 +518,27 @@ export function createMessagingService(storage: IStorage) {
           action: "conversation.created",
           conversationId: conversation.id,
           messageId: message.id,
-          metadata: { patientId: params.patientId, type: conversation.type },
+          metadata: {
+            portalUserId: portalUser.id,
+            patientId,
+            type: conversation.type,
+          },
         });
 
         const tenant = await storage.getTenant(tenantId);
-        if (portalUser?.email) {
+        if (portalUser.email) {
           await notifyPortalUserOfNewMessage({
             tenantId,
             portalUserId: portalUser.id,
             portalEmail: portalUser.email,
-            tenantAppName: tenant?.appName?.trim() || tenant?.name || "Your clinic",
+            tenantAppName: tenant?.appName?.trim() || tenant?.name || "Your business",
             conversationId: conversation.id,
           });
         }
-        if (portalUser) {
-          await notifyPortalPatientInApp(storage, tenantId, params.patientId, conversation.id);
-        }
+        await notifyPortalParticipantInApp(storage, tenantId, portalUser.id, conversation.id);
 
-        const patientName = await repo.getPatientDisplayName(tenantId, params.patientId);
-        const summary = await conversationToSummary(conversation, 0, patientName);
+        const displayName = await repo.getPortalUserDisplayName(tenantId, portalUser.id);
+        const summary = await conversationToSummary(conversation, 0, displayName);
         const messageDto = await messageToDto(message, { type: "staff", userId: staffUserId });
         await publishRealtimeForConversation(tenantId, conversation, message.id);
         return { ok: true, data: { conversation: summary, message: messageDto } };
@@ -560,7 +615,6 @@ export function createMessagingService(storage: IStorage) {
 
     async createPortalConversation(
       tenantId: string,
-      patientId: string,
       portalUserId: string,
       params: {
         subject?: string | null;
@@ -570,6 +624,8 @@ export function createMessagingService(storage: IStorage) {
         messagingConsentAccepted?: boolean;
         appointmentId?: string;
         assignedStaffUserId?: string | null;
+        /** Optional legacy employee bridge when present on the portal session. */
+        patientId?: string | null;
       },
     ): Promise<MessagingResult<{ conversation: ConversationSummaryDto; message: MessageDto }>> {
       if (!params.messagingConsentAccepted) {
@@ -593,13 +649,13 @@ export function createMessagingService(storage: IStorage) {
         params.assignedStaffUserId,
       );
       if (params.assignedStaffUserId && !assignedStaffUserId) {
-        return { ok: false, error: "Selected clinician is not available", code: "NOT_FOUND" };
+        return { ok: false, error: "Selected staff member is not available", code: "NOT_FOUND" };
       }
 
       try {
         const { conversation, message } = await repo.createPatientStaffConversation({
           tenantId,
-          patientId,
+          patientId: params.patientId ?? null,
           portalUserId,
           subject: params.subject,
           bodyText: body.data.bodyText,
@@ -619,15 +675,15 @@ export function createMessagingService(storage: IStorage) {
           metadata: { messagingConsentAccepted: true },
         });
 
-        const patientName = await repo.getPatientDisplayName(tenantId, patientId);
+        const displayName = await repo.getPortalUserDisplayName(tenantId, portalUserId);
         await notifyStaffOfNewMessage(storage, {
           tenantId,
           conversationId: conversation.id,
-          patientName,
+          patientName: displayName,
           recipientStaffUserIds: assignedStaffUserId ? [assignedStaffUserId] : undefined,
         });
 
-        const summary = await conversationToSummary(conversation, 0, patientName);
+        const summary = await conversationToSummary(conversation, 0, displayName);
         const messageDto = await messageToDto(message, {
           type: "portal",
           portalUserId,
@@ -701,20 +757,21 @@ export function createMessagingService(storage: IStorage) {
         messageId: message.id,
       });
 
-      if (conversation.patientId) {
-        const portalUser = await repo.findPortalUserForPatient(tenantId, conversation.patientId);
+      const portalIds = await repo.listPortalParticipantUserIds(conversationId);
+      if (portalIds.length > 0) {
         const tenant = await storage.getTenant(tenantId);
-        if (portalUser?.email) {
-          await notifyPortalUserOfNewMessage({
-            tenantId,
-            portalUserId: portalUser.id,
-            portalEmail: portalUser.email,
-            tenantAppName: tenant?.appName?.trim() || tenant?.name || "Your clinic",
-            conversationId,
-          });
-        }
-        if (portalUser) {
-          await notifyPortalPatientInApp(storage, tenantId, conversation.patientId, conversationId);
+        for (const portalUserId of portalIds) {
+          const portalUser = await repo.findPortalUserById(tenantId, portalUserId);
+          if (portalUser?.email) {
+            await notifyPortalUserOfNewMessage({
+              tenantId,
+              portalUserId: portalUser.id,
+              portalEmail: portalUser.email,
+              tenantAppName: tenant?.appName?.trim() || tenant?.name || "Your business",
+              conversationId,
+            });
+          }
+          await notifyPortalParticipantInApp(storage, tenantId, portalUserId, conversationId);
         }
       } else if (conversation.type === "staff_internal") {
         const staffIds = await repo.listStaffParticipantUserIds(conversationId);
@@ -732,7 +789,6 @@ export function createMessagingService(storage: IStorage) {
 
     async sendPortalMessage(
       tenantId: string,
-      patientId: string,
       portalUserId: string,
       conversationId: string,
       params: MessageBodyInput & {
@@ -750,15 +806,12 @@ export function createMessagingService(storage: IStorage) {
       if (!body.ok) return { ok: false, error: body.error, code: "VALIDATION" };
 
       const conversation = await repo.findConversationById(tenantId, conversationId);
-      if (!conversation || conversation.patientId !== patientId) {
+      if (!conversation || !(await portalCanAccessConversation(conversation, portalUserId))) {
         return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
       }
       if (conversation.status === "archived") {
         return { ok: false, error: "This conversation is closed", code: "CLOSED" };
       }
-
-      const participant = await repo.findPortalParticipant(conversationId, portalUserId);
-      if (!participant) return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
 
       if (conversation.status === "closed") {
         await repo.updateConversation(tenantId, conversationId, { status: "open" });
@@ -768,7 +821,7 @@ export function createMessagingService(storage: IStorage) {
       if (!assignedStaffUserId && params.assignedStaffUserId) {
         const resolved = await resolveAssignedStaffUserId(tenantId, params.assignedStaffUserId);
         if (!resolved) {
-          return { ok: false, error: "Selected clinician is not available", code: "NOT_FOUND" };
+          return { ok: false, error: "Selected staff member is not available", code: "NOT_FOUND" };
         }
         assignedStaffUserId = resolved;
         await repo.updateConversation(tenantId, conversationId, { assignedStaffUserId: resolved });
@@ -804,11 +857,11 @@ export function createMessagingService(storage: IStorage) {
         messageId: message.id,
       });
 
-      const patientName = await repo.getPatientDisplayName(tenantId, patientId);
+      const displayName = await repo.getPortalUserDisplayName(tenantId, portalUserId);
       await notifyStaffOfNewMessage(storage, {
         tenantId,
         conversationId,
-        patientName,
+        patientName: displayName,
         recipientStaffUserIds: assignedStaffUserId ? [assignedStaffUserId] : undefined,
       });
 
@@ -847,11 +900,7 @@ export function createMessagingService(storage: IStorage) {
         metadata: patch,
       });
 
-      const patientName = updated.patientId
-        ? await repo.getPatientDisplayName(tenantId, updated.patientId)
-        : updated.type === "staff_internal"
-          ? updated.subject?.trim() || "Staff thread"
-          : null;
+      const patientName = await resolvePortalFacingDisplayName(tenantId, updated);
       const unread = await repo.countUnreadInConversationForStaff(
         conversationId,
         staffUserId,
@@ -910,13 +959,12 @@ export function createMessagingService(storage: IStorage) {
 
     async markPortalRead(
       tenantId: string,
-      patientId: string,
       portalUserId: string,
       conversationId: string,
       messageId?: string,
     ): Promise<MessagingResult<{ ok: true }>> {
       const conversation = await repo.findConversationById(tenantId, conversationId);
-      if (!conversation || conversation.patientId !== patientId) {
+      if (!conversation || !(await portalCanAccessConversation(conversation, portalUserId))) {
         return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
       }
       await repo.markParticipantRead(conversationId, { portalUserId });
@@ -993,17 +1041,12 @@ export function createMessagingService(storage: IStorage) {
 
     async deletePortalMessage(
       tenantId: string,
-      patientId: string,
       portalUserId: string,
       conversationId: string,
       messageId: string,
     ): Promise<MessagingResult<MessageDto>> {
       const conversation = await repo.findConversationById(tenantId, conversationId);
-      if (!conversation || conversation.patientId !== patientId) {
-        return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
-      }
-      const participant = await repo.findPortalParticipant(conversationId, portalUserId);
-      if (!participant) {
+      if (!conversation || !(await portalCanAccessConversation(conversation, portalUserId))) {
         return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
       }
 
@@ -1058,12 +1101,7 @@ export function createMessagingService(storage: IStorage) {
         if (!conversation || !(await staffCanAccessConversation(conversation, staffUserId))) {
           return { ok: true, data: null };
         }
-        const patientName =
-          conversation.type === "staff_internal"
-            ? conversation.subject?.trim() || "Staff thread"
-            : conversation.patientId
-              ? await repo.getPatientDisplayName(tenantId, conversation.patientId)
-              : null;
+        const patientName = await resolvePortalFacingDisplayName(tenantId, conversation);
         const unread = await repo.countUnreadInConversationForStaff(
           conversation.id,
           staffUserId,
@@ -1083,7 +1121,6 @@ export function createMessagingService(storage: IStorage) {
 
     async lookupPortalConversation(
       tenantId: string,
-      patientId: string,
       portalUserId: string,
       filters: { appointmentId?: string },
     ): Promise<MessagingResult<ConversationSummaryDto | null>> {
@@ -1092,11 +1129,9 @@ export function createMessagingService(storage: IStorage) {
         if (filters.appointmentId) {
           conversation = await repo.findConversationByAppointmentId(tenantId, filters.appointmentId);
         }
-        if (!conversation || conversation.patientId !== patientId) {
+        if (!conversation || !(await portalCanAccessConversation(conversation, portalUserId))) {
           return { ok: true, data: null };
         }
-        const participant = await repo.findPortalParticipant(conversation.id, portalUserId);
-        if (!participant) return { ok: true, data: null };
 
         const unread = await repo.countUnreadInConversationForPortal(conversation.id, portalUserId);
         return {
@@ -1115,9 +1150,7 @@ export function createMessagingService(storage: IStorage) {
       tenantId: string,
       conversationId: string,
       messageId: string,
-      viewer:
-        | { type: "staff"; userId: string }
-        | { type: "portal"; portalUserId: string; patientId: string },
+      viewer: { type: "staff"; userId: string } | { type: "portal"; portalUserId: string },
       file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
     ): Promise<MessagingResult<MessageAttachmentDto>> {
       if (!isMessagingAttachmentMimeType(file.mimetype)) {
@@ -1136,12 +1169,8 @@ export function createMessagingService(storage: IStorage) {
         if (!(await staffCanAccessConversation(conversation, viewer.userId))) {
           return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
         }
-      } else {
-        if (conversation.patientId !== viewer.patientId) {
-          return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
-        }
-        const participant = await repo.findPortalParticipant(conversationId, viewer.portalUserId);
-        if (!participant) return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
+      } else if (!(await portalCanAccessConversation(conversation, viewer.portalUserId))) {
+        return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
       }
 
       const message = await repo.findMessageById(tenantId, messageId);
@@ -1247,12 +1276,7 @@ export function createMessagingService(storage: IStorage) {
       }
 
       try {
-        const patientName =
-          conversation.type === "staff_internal"
-            ? conversation.subject?.trim() || "Staff thread"
-            : conversation.patientId
-              ? await repo.getPatientDisplayName(tenantId, conversation.patientId)
-              : null;
+        const patientName = await resolvePortalFacingDisplayName(tenantId, conversation);
 
         const messages = await repo.listMessages(tenantId, conversationId, { limit: 5000 });
         const attachmentRows = await repo.listAttachmentsByMessageIds(messages.map((m) => m.id));
@@ -1307,20 +1331,11 @@ export function createMessagingService(storage: IStorage) {
 
     async exportPortalThreadCsv(
       tenantId: string,
-      patientId: string,
       portalUserId: string,
       conversationId: string,
     ): Promise<MessagingResult<{ csvContent: string; filename: string }>> {
       const conversation = await repo.findConversationById(tenantId, conversationId);
-      if (
-        !conversation ||
-        conversation.patientId !== patientId ||
-        !isPatientFacingConversation(conversation.type)
-      ) {
-        return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
-      }
-      const participant = await repo.findPortalParticipant(conversationId, portalUserId);
-      if (!participant) {
+      if (!conversation || !(await portalCanAccessConversation(conversation, portalUserId))) {
         return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
       }
 
@@ -1397,20 +1412,11 @@ export function createMessagingService(storage: IStorage) {
 
     async ackPortalThreadPrintExport(
       tenantId: string,
-      patientId: string,
       portalUserId: string,
       conversationId: string,
     ): Promise<MessagingResult<{ ok: true }>> {
       const conversation = await repo.findConversationById(tenantId, conversationId);
-      if (
-        !conversation ||
-        conversation.patientId !== patientId ||
-        !isPatientFacingConversation(conversation.type)
-      ) {
-        return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
-      }
-      const participant = await repo.findPortalParticipant(conversationId, portalUserId);
-      if (!participant) {
+      if (!conversation || !(await portalCanAccessConversation(conversation, portalUserId))) {
         return { ok: false, error: "Conversation not found", code: "NOT_FOUND" };
       }
       await auditMessagingAction({
@@ -1432,12 +1438,8 @@ export function createMessagingService(storage: IStorage) {
       return repo.countUnreadForStaff(tenantId, staffUserId);
     },
 
-    async portalUnreadCount(
-      tenantId: string,
-      patientId: string,
-      portalUserId: string,
-    ): Promise<number> {
-      return repo.countUnreadForPortal(tenantId, portalUserId, patientId);
+    async portalUnreadCount(tenantId: string, portalUserId: string): Promise<number> {
+      return repo.countUnreadForPortal(tenantId, portalUserId);
     },
   };
 }

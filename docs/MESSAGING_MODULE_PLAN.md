@@ -1,30 +1,30 @@
 # Secure Real-Time Messaging — Comprehensive Plan
 
-**Version:** 1.3.0  
-**Status:** Phase 1–3 complete; rich text, SMS alerts, and offline messaging shipped June 2026  
-**Last Updated:** June 2026  
-**Related docs:** [PATIENT_PORTAL_PLAN.md](./PATIENT_PORTAL_PLAN.md) §6 Phase 4, [RBAC.md](./RBAC.md), [AUTH_SYSTEM.md](./AUTH_SYSTEM.md), [BACKEND_ARCHITECTURE.md](./BACKEND_ARCHITECTURE.md), [APPOINTMENT_NOTIFICATIONS.md](./APPOINTMENT_NOTIFICATIONS.md), [TELEHEALTH_PLAN.md](./TELEHEALTH_PLAN.md), [E_TICKETING_STAFF_PLAN.md](./E_TICKETING_STAFF_PLAN.md)
+**Version:** 1.4.0  
+**Status:** Phase 1–3 complete; uventorybiz portal-centric restore in `1.2.0`  
+**Last Updated:** July 2026  
+**Related docs:** [PORTAL_GUIDE.md](./PORTAL_GUIDE.md), [RBAC.md](./RBAC.md), [BACKEND_ARCHITECTURE.md](./BACKEND_ARCHITECTURE.md), [E_TICKETING_STAFF_PLAN.md](./E_TICKETING_STAFF_PLAN.md). Clinical MineAid portal plans are archived under `purged/docs/`.
 
 ### Implementation notes (as built)
 
 - **Migrations:** `migrations/20260614_01_messaging_foundation.sql`, `migrations/20260614_02_message_received_notification_type.sql`
 - **Schema:** `shared/schema.ts` — `conversations`, `conversation_participants`, `messages`, `message_attachments`, `messaging_audit_log`
 - **Shared types:** `shared/messaging.ts`
-- **API (staff):** `server/modules/messaging/` — `/api/messaging/*` (`requireClinicalAccess`)
-- **API (portal):** mounted on portal router — `/api/portal/messaging/*` (portal session + `features.messaging`)
-- **Notifications:** `message_received` type; staff fallback recipients `medical_staff` + `admin` only (not EMT/safety officer)
+- **Feature flags:** platform Super Admin `messaging` (default **off**) + tenant `features_json.messaging`
+- **API (staff):** `server/modules/messaging/` — `/api/messaging/*` (staff access); portal recipients via `GET /api/messaging/portal-recipients`
+- **API (portal):** `/api/portal/messaging/*` (portal session + messaging flags); **no patient bridge** required — participants are portal users
+- **Notifications:** `message_received` type; preference-driven delivery
 - **Retention default:** 7 years (`MESSAGING_DEFAULT_RETENTION_YEARS`), stored on `conversations.retention_until`
-- **Attachments (schema only):** PDF + images MIME allowlist in `shared/messaging.ts`; upload API deferred to Phase 3
-- **Consent:** Portal first message requires acceptance; Terms §3a + `client/src/content/portalMessagingTerms.ts`
-- **Client:** `/messages` (staff), `/portal/messages` (portal), Settings → Patient portal → **Secure messaging** toggle; header unread badge; Medical Visit embed (`PatientMessagingPanel`); appointments “Message patient” shortcut
-- **Real-time:** SSE streams (`/api/messaging/stream`, `/api/portal/messaging/stream`) with React Query invalidation; HTTP polling is **fallback only** when SSE is disconnected (5s active / 30s inbox)
-- **Staff internal (Phase 2):** `staff_internal` threads; Patients / Staff inbox tabs; `MessagingStaffInternalDialog`
-- **Attachments (Phase 3):** `POST .../messages/:messageId/attachments` (PDF + images, Vercel Blob); up to **5 attachments per message**; composer multi-select
-- **Context threads:** `GET /api/messaging/conversations/lookup?appointmentId|encounterId`; deep links from appointments, Medical Visit (encounter), telecare end screen
-- **Thread export:** `GET .../conversations/:id/export?format=csv` (staff + portal); audit log `conversation.exported`; client **Print / Save as PDF**
-- **Rich text (optional):** Composer **Plain text** (default) | **Rich text**; TinyMCE (`MessageRichTextEditor`); server sanitization in `server/shared/messagingHtml.ts` (`sanitizeMessagingHtml`); `body_html` + plain `body_text` for previews; tables, underline, lists, links supported; no images in HTML (use attachments)
-- **SMS alerts:** `message_received` deliverable via notification preference channel **sms**; Twilio when `TWILIO_*` env vars set; PHI-safe template (title + link only, no message body); delivery logged in `notification_delivery_logs`
-- **Offline messaging:** IndexedDB cache (inbox + threads + outbox) in `offlineStore` v3; `client/src/lib/offlineMessaging.ts`; read cached threads offline; queue send/create with optimistic UI + **Pending sync** badges; auto-flush outbox on reconnect (`syncMessagingOutbox` in `App.tsx`); attachments/delete/close require online
+- **Consent:** Portal first message requires acceptance; Terms + `client/src/content/portalMessagingTerms.ts`
+- **Client:** `/messages` under **Operations → Messages** (staff), `/portal/messages` (portal); Settings → Portal → Secure messaging; header unread badges
+- **Real-time:** SSE streams (`/api/messaging/stream`, `/api/portal/messaging/stream`) with React Query invalidation; HTTP polling fallback when SSE disconnected
+- **Staff internal:** `staff_internal` threads; staff↔staff and staff↔portal (customer/supplier) threads
+- **Attachments:** `POST .../messages/:messageId/attachments` (PDF + images); up to **5** per message
+- **Thread export:** `GET .../conversations/:id/export?format=csv` (staff + portal); client Print / Save as PDF
+- **Rich text (optional):** TinyMCE composer; server sanitization in `server/shared/messagingHtml.ts`
+- **SMS alerts:** `message_received` via preference channel **sms** when Twilio configured (title + link only)
+- **Offline messaging:** IndexedDB outbox in `client/src/lib/offlineMessaging.ts`; flush on reconnect
+- **uventorybiz note:** Clinical embeds (`PatientMessagingPanel`, encounter lookup) remain in codebase for purged-era compatibility but are not primary product paths; do not re-wire patient messaging without explicit instruction
 
 ### Product / legal decisions (resolved)
 

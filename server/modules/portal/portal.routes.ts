@@ -1496,7 +1496,7 @@ export function createPortalRouter(deps: PortalRoutesDeps): Router {
   router.use(
     mountPortalMessagingRoutes({
       storage,
-      requirePortalAuth: requirePortalPatientAuth,
+      requirePortalAuth,
       requirePortalMessagingFeature,
       messagingUpload,
     }),

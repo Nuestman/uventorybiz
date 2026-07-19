@@ -39,7 +39,7 @@ export function buildPortalNav(session: PortalSessionPayload | null): PortalNavI
       href: "/portal/messages",
       label: "Messages",
       icon: MessageSquare,
-      enabled: session.features.messaging && hasPatientBridge,
+      enabled: session.features.messaging,
     },
     {
       href: PORTAL_SUPPORT,

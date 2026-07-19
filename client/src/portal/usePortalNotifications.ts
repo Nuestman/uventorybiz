@@ -15,12 +15,6 @@ export function usePortalNotifications(enabled = true) {
   });
 }
 
-/** Unread order-update notifications — drives the "My orders" sidebar badge. */
-export function useUnreadOrderUpdatesCount(enabled = true): number {
-  const { data } = usePortalNotifications(enabled);
-  return (data ?? []).filter((n) => n.type === "order_update" && !n.readAt).length;
-}
-
 export function usePortalNotificationsUnreadCount(enabled = true) {
   return useQuery<{ count: number }>({
     queryKey: UNREAD_KEY,

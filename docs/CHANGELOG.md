@@ -20,6 +20,36 @@ MineAid HMS history (pre–uventorybiz) is archived at [`purged/docs/CHANGELOG_M
 
 ---
 
+## [1.2.0] - 2026-07-19
+
+Navigation orientation, list pagination, portal orders UX, and portal-centric secure messaging restore (staff ↔ portal users, staff ↔ staff).
+
+### Added
+
+- **Staff & Super Admin breadcrumbs** — top-bar trail on all pages via `AppBreadcrumbs` + `appBreadcrumbs` resolver (sidebar / `superAdminNav`); portal-style `Home` / `System console` › section › page. Spec: [APP_NAVIGATION_AND_BREADCRUMBS.md](./APP_NAVIGATION_AND_BREADCRUMBS.md).
+- **List pagination** — shared `ListPagination` (20/page, hidden when ≤ page size) on Customers, Suppliers, Product Catalog, Inventory Transactions.
+- **Portal pagination** — `PortalPagination` on Shop and My orders (client-side).
+- **Portal My orders filters** — All / Active / Needs action / Completed / Cancelled plus status dropdown.
+- **Messages under Operations** — staff sidebar **Messages** (`/messages`); recipient picker via `/api/messaging/portal-recipients` (customers/portal users, not patients).
+
+### Fixed
+
+- Portal messaging auth no longer requires a patient bridge; threads are **PortalUser**-centric.
+- Staff new-thread picker aligned with portal parties (customers / portal users).
+
+### Changed
+
+- Staff / Super Admin header: breadcrumbs replace logo + quick-link strip (logo stays in sidebar).
+- Portal sidebar: remove **My orders** unread order-update badge (Messages keeps messaging unread badge).
+- Messaging copy and flows de-emphasize clinical/patient context for uventorybiz B2B use.
+
+### Docs
+
+- [APP_NAVIGATION_AND_BREADCRUMBS.md](./APP_NAVIGATION_AND_BREADCRUMBS.md)
+- Updated [PORTAL_GUIDE.md](./PORTAL_GUIDE.md), [MESSAGING_MODULE_PLAN.md](./MESSAGING_MODULE_PLAN.md), [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md), [VERSION.md](./VERSION.md)
+
+---
+
 ## [1.1.0] - 2026-07-19
 
 Inventory multi-store UX from after `1.0.0`, plus business assets, fleet rename, portal support tickets, session controls, and messaging feature flag.

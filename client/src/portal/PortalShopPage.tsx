@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { PORTAL_ORDERS } from "./portalRoutes";
+import { PortalPagination } from "./PortalPagination";
 import { PORTAL_PRIMARY_BTN_CLASS, PortalEmptyState, PortalLoadingBlock } from "./portalUi";
 
 type ShopLocation = {
@@ -48,6 +49,8 @@ type ShopProduct = {
 
 type CartLine = { product: ShopProduct; quantity: number };
 
+const SHOP_PAGE_SIZE = 12;
+
 function money(value: string | null | undefined): string {
   const n = Number.parseFloat(value ?? "");
   return Number.isFinite(n) ? n.toFixed(2) : "—";
@@ -61,6 +64,7 @@ export default function PortalShopPage() {
   const [locationId, setLocationId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [cart, setCart] = useState<Map<string, CartLine>>(new Map());
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">("pickup");
@@ -71,6 +75,10 @@ export default function PortalShopPage() {
     const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => window.clearTimeout(t);
   }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [locationId, debouncedSearch]);
 
   const { data: locations = [] } = useQuery<ShopLocation[]>({
     queryKey: ["/api/portal/shop/locations"],
@@ -96,6 +104,16 @@ export default function PortalShopPage() {
     enabled: !!productsUrl,
   });
   const products = productsPayload?.products ?? [];
+
+  const totalPages = Math.max(1, Math.ceil(products.length / SHOP_PAGE_SIZE));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const pagedProducts = useMemo(() => {
+    const start = (page - 1) * SHOP_PAGE_SIZE;
+    return products.slice(start, start + SHOP_PAGE_SIZE);
+  }, [products, page]);
 
   const cartLines = useMemo(() => [...cart.values()], [cart]);
   const cartTotal = useMemo(
@@ -211,60 +229,69 @@ export default function PortalShopPage() {
           }
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {products.map((product) => {
-            const inCart = cart.get(product.itemId);
-            return (
-              <Card key={product.itemId} className="border-gray-200 shadow-sm flex flex-col">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-start justify-between gap-2">
-                    <span className="min-w-0 truncate" title={product.itemName}>
-                      {product.itemName}
-                    </span>
-                    <Badge variant="outline" className="text-xs shrink-0">
-                      {product.itemCode}
-                    </Badge>
-                  </CardTitle>
-                  <CardDescription className="capitalize">
-                    {product.category.replace(/_/g, " ")} · per {product.unitOfMeasure}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="mt-auto flex items-center justify-between gap-2">
-                  <div>
-                    <p className="font-semibold text-gray-900">{money(product.unitPrice)}</p>
-                    <p className="text-xs text-uventorybiz-gray">{product.availableStock} in stock</p>
-                  </div>
-                  {inCart ? (
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8"
-                        onClick={() => setQuantity(product, inCart.quantity - 1)}
-                      >
-                        <Minus className="h-3.5 w-3.5" />
-                      </Button>
-                      <span className="w-8 text-center text-sm font-medium">{inCart.quantity}</span>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8"
-                        disabled={inCart.quantity >= (product.availableStock ?? 0)}
-                        onClick={() => setQuantity(product, inCart.quantity + 1)}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                      </Button>
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {pagedProducts.map((product) => {
+              const inCart = cart.get(product.itemId);
+              return (
+                <Card key={product.itemId} className="border-gray-200 shadow-sm flex flex-col">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-start justify-between gap-2">
+                      <span className="min-w-0 truncate" title={product.itemName}>
+                        {product.itemName}
+                      </span>
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {product.itemCode}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="capitalize">
+                      {product.category.replace(/_/g, " ")} · per {product.unitOfMeasure}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="mt-auto flex items-center justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-gray-900">{money(product.unitPrice)}</p>
+                      <p className="text-xs text-uventorybiz-gray">{product.availableStock} in stock</p>
                     </div>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={() => setQuantity(product, 1)}>
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Add
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                    {inCart ? (
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8"
+                          onClick={() => setQuantity(product, inCart.quantity - 1)}
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </Button>
+                        <span className="w-8 text-center text-sm font-medium">{inCart.quantity}</span>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8"
+                          disabled={inCart.quantity >= (product.availableStock ?? 0)}
+                          onClick={() => setQuantity(product, inCart.quantity + 1)}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => setQuantity(product, 1)}>
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Add
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+          <PortalPagination
+            page={page}
+            pageSize={SHOP_PAGE_SIZE}
+            total={products.length}
+            onPageChange={setPage}
+            itemLabel="products"
+          />
         </div>
       )}
 

@@ -243,6 +243,7 @@ export async function queueOfflineCreateConversation(params: {
     clientMessageId?: string;
     subject?: string | null;
     patientId?: string;
+    portalUserId?: string;
   };
   senderDisplayName: string;
   patientName?: string | null;

@@ -1,7 +1,7 @@
 # uventorybiz — Implementation Status
 
 **Product:** Multi-tenant B2B business management (inventory + POS)  
-**Version:** `1.1.0`  
+**Version:** `1.2.0`  
 **Last updated:** July 19, 2026  
 **Repo:** https://github.com/Nuestman/uventorybiz
 
@@ -22,6 +22,8 @@
 | Business Assets + fleet rename + vehicle kind | Done (`0020`–`0024`) |
 | Portal support tickets | Done (`0016`, `0025`) |
 | MineAid clinical docs → `purged/docs/` | Done (Jul 2026) |
+| Staff/Super Admin breadcrumbs + list pagination | Done (`1.2.0`) |
+| Portal-centric messaging restore (no patient bridge) | Done (`1.2.0`) |
 
 ## Current surface
 
@@ -35,6 +37,8 @@
 - ShiftOver, Fleet (`/assets/fleet/*`), POC Laboratory (instant tests), Employee Wellbeing
 - Auth, tenancy, admin, notifications, SOP, non-clinical reports
 - Platform feature flags (incl. messaging default off)
+- **Navigation** — top-bar breadcrumbs on staff + Super Admin ([APP_NAVIGATION_AND_BREADCRUMBS.md](./APP_NAVIGATION_AND_BREADCRUMBS.md)); list pagination on key staff lists
+- **Messaging** — staff ↔ portal users and staff ↔ staff when platform + tenant messaging flags are on; Ops → Messages
 
 ### Purged (not wired)
 - Patients, encounters, medical visits/records, triage/vitals

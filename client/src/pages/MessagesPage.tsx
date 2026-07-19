@@ -108,7 +108,7 @@ export default function MessagesPage() {
             <p className="text-sm text-muted-foreground mt-1">
               {isStaffChannel
                 ? "Internal staff threads — not visible to customers."
-                : "Customer threads — staff only. Not for emergencies."}
+                : "Portal threads — staff only. Not for emergencies."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -124,7 +124,6 @@ export default function MessagesPage() {
               />
             ) : (
               <MessagingNewThreadDialog
-                defaultPatientId={urlPatientId ?? undefined}
                 appointmentId={urlAppointmentId ?? undefined}
                 trigger={
                   <Button type="button">
@@ -143,7 +142,7 @@ export default function MessagesPage() {
           onValueChange={(v) => setInboxChannel(v as InboxChannel)}
         >
           <TabsList>
-            <TabsTrigger value="patient">Customers</TabsTrigger>
+            <TabsTrigger value="patient">Portal</TabsTrigger>
             <TabsTrigger value="staff_internal">Staff</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -169,8 +168,8 @@ export default function MessagesPage() {
               isStaffChannel
                 ? "Threads you participate in"
                 : urlPatientId
-                  ? "Filtered to one customer"
-                  : "Customer conversations"
+                  ? "Filtered inbox"
+                  : "Portal customer & supplier conversations"
             }
             emptyTitle="No conversations"
             emptyDescription={
@@ -178,7 +177,7 @@ export default function MessagesPage() {
                 ? "Start a staff-only thread with colleagues."
                 : inboxFilter === "mine"
                   ? "No threads assigned to you yet."
-                  : "When customers message your business, threads appear here."
+                  : "When portal users message your business, threads appear here."
             }
             staffMode={isStaffChannel ? "staff_internal" : "patient"}
           />

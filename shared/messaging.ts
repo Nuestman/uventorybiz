@@ -79,7 +79,10 @@ function refineMessageBody<T extends z.ZodRawShape>(shape: T) {
 
 export const createConversationBodySchema = refineMessageBody({
   subject: z.string().max(MESSAGING_MAX_SUBJECT_LENGTH).optional().nullable(),
+  /** @deprecated Legacy employee bridge; prefer portalUserId for B2B portal threads. */
   patientId: z.string().min(1).optional(),
+  /** Customer/supplier portal account to message (staff → portal). */
+  portalUserId: z.string().min(1).optional(),
   appointmentId: z.string().min(1).optional(),
   /** Phase 2 — staff-only thread; requires at least one other clinical staff user. */
   staffUserIds: z.array(z.string().min(1)).max(10).optional(),
@@ -89,6 +92,14 @@ export const createConversationBodySchema = refineMessageBody({
   /** Portal — route thread to a specific clinician (general queue when omitted). */
   assignedStaffUserId: z.string().min(1).optional().nullable(),
 });
+
+export type MessagingPortalRecipientDto = {
+  id: string;
+  email: string;
+  partyType: string;
+  displayName: string;
+  status: string;
+};
 
 export const sendMessageBodySchema = refineMessageBody({
   ...messageBodyFieldsSchema,

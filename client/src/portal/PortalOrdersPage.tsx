@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { CheckCircle2, Loader2, Package, PhoneCall, ShoppingBag, Truck, Undo2 } from "lucide-react";
@@ -14,7 +14,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import {
@@ -25,6 +33,7 @@ import {
 } from "@shared/portalOrders";
 import { PORTAL_SHOP } from "./portalRoutes";
 import { usePortalSession } from "./usePortalSession";
+import { PortalPagination } from "./PortalPagination";
 import { PORTAL_PRIMARY_BTN_CLASS, PortalEmptyState, PortalLoadingBlock } from "./portalUi";
 
 type OrderItem = {
@@ -61,6 +70,44 @@ type OrderRow = {
   items: OrderItem[];
 };
 
+type OrderFilter = "all" | "active" | "needs_action" | "completed" | "cancelled";
+
+const ORDERS_PAGE_SIZE = 8;
+
+const ACTIVE_STATUSES: PortalOrderStatus[] = [
+  "pending",
+  "confirmed",
+  "ready_for_pickup",
+  "out_for_delivery",
+  "not_received",
+  "return_requested",
+];
+
+const NEEDS_ACTION_STATUSES: PortalOrderStatus[] = ["ready_for_pickup", "out_for_delivery"];
+
+const COMPLETED_STATUSES: PortalOrderStatus[] = ["completed", "returned"];
+
+const CANCELLED_STATUSES: PortalOrderStatus[] = ["cancelled", "rejected"];
+
+function matchesFilter(status: PortalOrderStatus, filter: OrderFilter): boolean {
+  switch (filter) {
+    case "all":
+      return true;
+    case "active":
+      return ACTIVE_STATUSES.includes(status);
+    case "needs_action":
+      return NEEDS_ACTION_STATUSES.includes(status);
+    case "completed":
+      return COMPLETED_STATUSES.includes(status);
+    case "cancelled":
+      return CANCELLED_STATUSES.includes(status);
+    default: {
+      const _exhaustive: never = filter;
+      return _exhaustive;
+    }
+  }
+}
+
 function statusBadgeVariant(status: PortalOrderStatus): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case "pending":
@@ -85,10 +132,8 @@ function statusBadgeVariant(status: PortalOrderStatus): "default" | "secondary" 
   }
 }
 
-/** Statuses where the customer confirms receipt (or reports a problem). */
 const RECEIPT_STATUSES: PortalOrderStatus[] = ["ready_for_pickup", "out_for_delivery"];
 
-/** Active statuses past pending — cancelling now requires calling the business. */
 const CALL_TO_CANCEL_STATUSES: PortalOrderStatus[] = [
   "confirmed",
   "ready_for_pickup",
@@ -106,11 +151,54 @@ export default function PortalOrdersPage() {
   const [reportReason, setReportReason] = useState("");
   const [returnOrderId, setReturnOrderId] = useState<string | null>(null);
   const [returnReason, setReturnReason] = useState("");
+  const [filter, setFilter] = useState<OrderFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
 
   const { data: orders = [], isLoading } = useQuery<OrderRow[]>({
     queryKey: ["/api/portal/orders"],
     queryFn: getQueryFn<OrderRow[]>({ on401: "throw" }),
   });
+
+  const filterCounts = useMemo(() => {
+    const counts: Record<OrderFilter, number> = {
+      all: orders.length,
+      active: 0,
+      needs_action: 0,
+      completed: 0,
+      cancelled: 0,
+    };
+    for (const row of orders) {
+      const s = row.order.status;
+      if (ACTIVE_STATUSES.includes(s)) counts.active += 1;
+      if (NEEDS_ACTION_STATUSES.includes(s)) counts.needs_action += 1;
+      if (COMPLETED_STATUSES.includes(s)) counts.completed += 1;
+      if (CANCELLED_STATUSES.includes(s)) counts.cancelled += 1;
+    }
+    return counts;
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter(({ order }) => {
+      if (!matchesFilter(order.status, filter)) return false;
+      if (statusFilter !== "all" && order.status !== statusFilter) return false;
+      return true;
+    });
+  }, [orders, filter, statusFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PAGE_SIZE));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const pagedOrders = useMemo(() => {
+    const start = (page - 1) * ORDERS_PAGE_SIZE;
+    return filteredOrders.slice(start, start + ORDERS_PAGE_SIZE);
+  }, [filteredOrders, page]);
 
   const invalidateOrders = () => queryClient.invalidateQueries({ queryKey: ["/api/portal/orders"] });
 
@@ -201,6 +289,46 @@ export default function PortalOrdersPage() {
         </Button>
       </div>
 
+      {!isLoading && orders.length > 0 ? (
+        <div className="space-y-3">
+          <Tabs
+            value={filter}
+            onValueChange={(v) => {
+              setFilter(v as OrderFilter);
+              setStatusFilter("all");
+            }}
+          >
+            <TabsList className="flex h-auto flex-wrap gap-1">
+              <TabsTrigger value="all">All ({filterCounts.all})</TabsTrigger>
+              <TabsTrigger value="active">Active ({filterCounts.active})</TabsTrigger>
+              <TabsTrigger value="needs_action">
+                Needs action ({filterCounts.needs_action})
+              </TabsTrigger>
+              <TabsTrigger value="completed">Completed ({filterCounts.completed})</TabsTrigger>
+              <TabsTrigger value="cancelled">Cancelled ({filterCounts.cancelled})</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <Label htmlFor="order-status-filter" className="text-sm shrink-0">
+              Status
+            </Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger id="order-status-filter" className="sm:w-64">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {(Object.keys(PORTAL_ORDER_STATUS_LABELS) as PortalOrderStatus[]).map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {PORTAL_ORDER_STATUS_LABELS[status]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      ) : null}
+
       {isLoading ? (
         <PortalLoadingBlock label="Loading orders…" />
       ) : orders.length === 0 ? (
@@ -209,9 +337,15 @@ export default function PortalOrdersPage() {
           title="No orders yet"
           description="Products you order will appear here with live status updates."
         />
+      ) : filteredOrders.length === 0 ? (
+        <PortalEmptyState
+          icon={Package}
+          title="No matching orders"
+          description="Try a different filter or status."
+        />
       ) : (
         <div className="space-y-4">
-          {orders.map(({ order, locationName, items }) => {
+          {pagedOrders.map(({ order, locationName, items }) => {
             const awaitingReceipt = RECEIPT_STATUSES.includes(order.status);
             const graceEnd = awaitingReceipt ? orderGraceEndsAt(order.readyAt) : null;
             return (
@@ -250,7 +384,8 @@ export default function PortalOrdersPage() {
 
                   {order.fulfillmentType === "delivery" && order.deliveryAddress ? (
                     <p className="text-sm text-uventorybiz-gray">
-                      <span className="font-medium text-gray-700">Deliver to:</span> {order.deliveryAddress}
+                      <span className="font-medium text-gray-700">Deliver to:</span>{" "}
+                      {order.deliveryAddress}
                     </p>
                   ) : null}
 
@@ -265,7 +400,10 @@ export default function PortalOrdersPage() {
                           {order.deliveryContactPhone ? (
                             <>
                               {" · "}
-                              <a href={`tel:${order.deliveryContactPhone}`} className="font-medium underline">
+                              <a
+                                href={`tel:${order.deliveryContactPhone}`}
+                                className="font-medium underline"
+                              >
                                 {order.deliveryContactPhone}
                               </a>
                             </>
@@ -277,15 +415,16 @@ export default function PortalOrdersPage() {
 
                   {order.staffNotes ? (
                     <p className="text-sm text-uventorybiz-gray">
-                      <span className="font-medium text-gray-700">Note from the business:</span> {order.staffNotes}
+                      <span className="font-medium text-gray-700">Note from the business:</span>{" "}
+                      {order.staffNotes}
                     </p>
                   ) : null}
 
                   {order.status === "not_received" ? (
                     <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
                       You reported this order as not received
-                      {order.notReceivedReason ? ` ("${order.notReceivedReason}")` : ""}. The business has been
-                      notified and will contact you to resolve it.
+                      {order.notReceivedReason ? ` ("${order.notReceivedReason}")` : ""}. The business
+                      has been notified and will contact you to resolve it.
                     </p>
                   ) : null}
 
@@ -356,14 +495,18 @@ export default function PortalOrdersPage() {
                       {order.returnRequestedAt
                         ? ` on ${new Date(order.returnRequestedAt).toLocaleDateString()}`
                         : ""}
-                      {order.returnReason ? ` ("${order.returnReason}")` : ""}. The business will contact
-                      you to arrange the return and refund.
+                      {order.returnReason ? ` ("${order.returnReason}")` : ""}. The business will
+                      contact you to arrange the return and refund.
                     </p>
                   ) : null}
 
                   {order.status === "returned" ? (
                     <p className="text-xs text-uventorybiz-gray">
-                      Returned{order.returnedAt ? ` on ${new Date(order.returnedAt).toLocaleDateString()}` : ""}.
+                      Returned
+                      {order.returnedAt
+                        ? ` on ${new Date(order.returnedAt).toLocaleDateString()}`
+                        : ""}
+                      .
                     </p>
                   ) : null}
 
@@ -392,7 +535,9 @@ export default function PortalOrdersPage() {
                         disabled={cancelMutation.isPending}
                         onClick={() => cancelMutation.mutate(order.id)}
                       >
-                        {cancelMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                        {cancelMutation.isPending && (
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        )}
                         Cancel order
                       </Button>
                     </div>
@@ -401,10 +546,16 @@ export default function PortalOrdersPage() {
               </Card>
             );
           })}
+          <PortalPagination
+            page={page}
+            pageSize={ORDERS_PAGE_SIZE}
+            total={filteredOrders.length}
+            onPageChange={setPage}
+            itemLabel="orders"
+          />
         </div>
       )}
 
-      {/* Return request dialog */}
       <Dialog open={!!returnOrderId} onOpenChange={(open) => !open && setReturnOrderId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -439,7 +590,6 @@ export default function PortalOrdersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Not received report dialog */}
       <Dialog open={!!reportOrderId} onOpenChange={(open) => !open && setReportOrderId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

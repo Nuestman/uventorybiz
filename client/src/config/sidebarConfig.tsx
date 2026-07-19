@@ -217,6 +217,13 @@ const operationsGroup: SidebarGroupConfig = {
       description: "Site issues, repairs, and requests to your tenant admins",
       featureFlag: "tickets",
     },
+    {
+      title: "Messages",
+      url: "/messages",
+      icon: MessageSquare,
+      description: "Secure messaging with portal users and staff",
+      featureFlag: "messaging",
+    },
   ],
 };
 

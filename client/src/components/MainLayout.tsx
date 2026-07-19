@@ -50,6 +50,7 @@ import { SessionTimeoutWarning } from "@/components/SessionTimeoutWarning";
 import { WhatsNewDialog } from "@/components/WhatsNewDialog";
 
 import { BrandLogo } from "@/components/BrandLogo";
+import { AppBreadcrumbs } from "@/components/AppBreadcrumbs";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -517,75 +518,13 @@ function AppSidebar() {
 function HeaderContent() {
   const { user, logout } = useAuth();
   const authUser = user;
-  const { settings } = useTenantSettings();
-  const [location] = useLocation();
-  const { state } = useSidebar();
-  const { flags: featureFlags, isLoading: flagsLoading } = useFeatureFlags();
-  const appointmentsEnabled = !flagsLoading && (featureFlags["appointments"] ?? true);
-  const tenantLogo = settings?.logoUrl || null;
-  
-  const isActive = (path: string) => {
-    if (path === "/dashboard" && (location === "/dashboard" || location.startsWith("/dashboard/"))) return true;
-    if (path === "/" && location === "/") return true;
-    if (path === "/shiftover") {
-      const loc = location.split("?")[0].replace(/\/$/, "") || "/";
-      return loc === "/shiftover";
-    }
-    if (path !== "/" && path !== "/dashboard" && location.startsWith(path)) return true;
-    return false;
-  };
 
   return (
-    <div className="flex items-center h-16 px-4">
-      {/* Mobile Logo - show on mobile, hide on desktop (xl and up) */}
-      <div className="xl:hidden">
-        <BrandLogo
-          variant="full"
-          src={tenantLogo}
-          alt="uventorybiz"
-          className="h-8 w-auto object-contain"
-        />
-      </div>
-
-      {/* Desktop Logo - show on xl and up when sidebar not expanded */}
-      <div className={`${state === 'expanded' ? 'hidden' : 'hidden xl:block'}`}>
-        <BrandLogo
-          variant="full"
-          src={tenantLogo}
-          alt="uventorybiz"
-          className="h-8 w-auto object-contain"
-        />
-      </div>
-
-      {/* Desktop Navigation - hide when sidebar is expanded or screen width < 1280px (xl) */}
-      <nav className={`${state === 'expanded' ? 'hidden' : 'hidden xl:flex'} items-center space-x-8 h-16 flex-1 ml-4`}>
-        <Link href="/dashboard" className={`nav-link-enhanced font-medium px-4 ${
-          isActive("/dashboard") 
-            ? "active text-uventorybiz-coral" 
-            : "text-uventorybiz-gray hover:text-uventorybiz-coral"
-        }`}>
-          Dashboard
-        </Link>
-        {appointmentsEnabled && (
-          <Link href="/appointments" className={`nav-link-enhanced font-medium px-4 ${
-            isActive("/appointments") 
-              ? "active text-uventorybiz-coral" 
-              : "text-uventorybiz-gray hover:text-uventorybiz-coral"
-          }`}>
-            Appointments
-          </Link>
-        )}
-        <Link href="/incidents" className={`nav-link-enhanced font-medium px-4 ${
-          isActive("/incidents") 
-            ? "active text-uventorybiz-coral" 
-            : "text-uventorybiz-gray hover:text-uventorybiz-coral"
-        }`}>
-          Incidents
-        </Link>
-      </nav>
+    <div className="flex items-center h-16 px-4 gap-4 min-w-0">
+      <AppBreadcrumbs variant="staff" className="flex-1" />
 
       {/* Right side actions - always stay at the right */}
-      <div className="flex items-center space-x-4 ml-auto">
+      <div className="flex items-center space-x-4 shrink-0 ml-auto">
         <MessagingHeaderLink />
         <NotificationBell className="flex" />
 

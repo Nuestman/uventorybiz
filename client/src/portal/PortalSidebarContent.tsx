@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buildPortalNav, isPortalNavActive } from "./portalNav";
-import { PORTAL_DASHBOARD, PORTAL_ORDERS } from "./portalRoutes";
+import { PORTAL_DASHBOARD } from "./portalRoutes";
 import type { PortalSessionPayload } from "./usePortalSession";
 
 export type PortalSidebarContentProps = {
@@ -11,8 +11,6 @@ export type PortalSidebarContentProps = {
   primary: string;
   brandName: string;
   messagesUnreadCount: number;
-  /** Unread order-update notifications — badge on "My orders". */
-  ordersUnreadCount?: number;
   onSignOut: () => void;
   signOutPending: boolean;
   /** Close mobile drawer after navigation */
@@ -26,7 +24,6 @@ export function PortalSidebarContent({
   primary,
   brandName,
   messagesUnreadCount,
-  ordersUnreadCount = 0,
   onSignOut,
   signOutPending,
   onNavigate,
@@ -96,11 +93,6 @@ export function PortalSidebarContent({
                 {href === "/portal/messages" && messagesUnreadCount > 0 ? (
                   <Badge className="h-5 min-w-[1.25rem] px-1.5 text-[10px] bg-emerald-500 hover:bg-emerald-500 text-white border-0">
                     {messagesUnreadCount > 99 ? "99+" : messagesUnreadCount}
-                  </Badge>
-                ) : null}
-                {href === PORTAL_ORDERS && ordersUnreadCount > 0 ? (
-                  <Badge className="h-5 min-w-[1.25rem] px-1.5 text-[10px] bg-emerald-500 hover:bg-emerald-500 text-white border-0">
-                    {ordersUnreadCount > 99 ? "99+" : ordersUnreadCount}
                   </Badge>
                 ) : null}
               </span>

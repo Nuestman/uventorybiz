@@ -3,12 +3,14 @@ import { db } from "../../config/db";
 import {
   conversationParticipants,
   conversations,
+  customers,
   employees,
   messages,
   messageAttachments,
   messagingAuditLog,
   patients,
   portalUsers,
+  suppliers,
   users,
 } from "@shared/schema";
 import type { Conversation, Message, MessageAttachment } from "@shared/schema";
@@ -313,6 +315,72 @@ export async function getStaffDisplayName(userId: string): Promise<string> {
   return name || "Care team";
 }
 
+export async function getPortalUserDisplayName(tenantId: string, portalUserId: string): Promise<string> {
+  const [row] = await db
+    .select({
+      email: portalUsers.email,
+      partyType: portalUsers.partyType,
+      customerFirstName: customers.firstName,
+      customerLastName: customers.lastName,
+      supplierName: suppliers.name,
+    })
+    .from(portalUsers)
+    .leftJoin(customers, eq(portalUsers.customerId, customers.id))
+    .leftJoin(suppliers, eq(portalUsers.supplierId, suppliers.id))
+    .where(and(eq(portalUsers.id, portalUserId), eq(portalUsers.tenantId, tenantId)))
+    .limit(1);
+  if (!row) return "Portal user";
+  if (row.supplierName?.trim()) return row.supplierName.trim();
+  const customerName = `${row.customerFirstName ?? ""} ${row.customerLastName ?? ""}`.trim();
+  if (customerName) return customerName;
+  return row.email || "Portal user";
+}
+
+export async function findPortalUserById(tenantId: string, portalUserId: string) {
+  const [row] = await db
+    .select()
+    .from(portalUsers)
+    .where(
+      and(
+        eq(portalUsers.id, portalUserId),
+        eq(portalUsers.tenantId, tenantId),
+        eq(portalUsers.status, "active"),
+      ),
+    )
+    .limit(1);
+  return row;
+}
+
+export async function listPortalRecipients(tenantId: string) {
+  const rows = await db
+    .select({
+      id: portalUsers.id,
+      email: portalUsers.email,
+      partyType: portalUsers.partyType,
+      status: portalUsers.status,
+      customerFirstName: customers.firstName,
+      customerLastName: customers.lastName,
+      supplierName: suppliers.name,
+    })
+    .from(portalUsers)
+    .leftJoin(customers, eq(portalUsers.customerId, customers.id))
+    .leftJoin(suppliers, eq(portalUsers.supplierId, suppliers.id))
+    .where(and(eq(portalUsers.tenantId, tenantId), eq(portalUsers.status, "active")))
+    .orderBy(desc(portalUsers.createdAt));
+
+  return rows.map((row) => {
+    const customerName = `${row.customerFirstName ?? ""} ${row.customerLastName ?? ""}`.trim();
+    const displayName = row.supplierName?.trim() || customerName || row.email;
+    return {
+      id: row.id,
+      email: row.email,
+      partyType: row.partyType,
+      displayName,
+      status: row.status,
+    };
+  });
+}
+
 export async function listStaffConversations(
   tenantId: string,
   opts: {
@@ -368,18 +436,26 @@ export async function listStaffConversations(
   return rows;
 }
 
-export async function listPortalConversations(tenantId: string, patientId: string) {
-  return db
-    .select()
+export async function listPortalConversations(tenantId: string, portalUserId: string) {
+  const rows = await db
+    .select({ conversation: conversations })
     .from(conversations)
+    .innerJoin(
+      conversationParticipants,
+      and(
+        eq(conversationParticipants.conversationId, conversations.id),
+        eq(conversationParticipants.portalUserId, portalUserId),
+        isNull(conversationParticipants.leftAt),
+      ),
+    )
     .where(
       and(
         eq(conversations.tenantId, tenantId),
-        eq(conversations.patientId, patientId),
         sql`${conversations.type} IN ('patient_staff', 'appointment_thread', 'encounter_thread')`,
       ),
     )
     .orderBy(desc(conversations.lastMessageAt), desc(conversations.createdAt));
+  return rows.map((r) => r.conversation);
 }
 
 export async function countUnreadForStaff(
@@ -446,7 +522,6 @@ export async function countUnreadForStaff(
 export async function countUnreadForPortal(
   tenantId: string,
   portalUserId: string,
-  patientId: string,
 ): Promise<number> {
   const [row] = await db
     .select({
@@ -459,12 +534,13 @@ export async function countUnreadForPortal(
       and(
         eq(conversationParticipants.conversationId, conversations.id),
         eq(conversationParticipants.portalUserId, portalUserId),
+        isNull(conversationParticipants.leftAt),
       ),
     )
     .where(
       and(
         eq(conversations.tenantId, tenantId),
-        eq(conversations.patientId, patientId),
+        sql`${conversations.type} IN ('patient_staff', 'appointment_thread', 'encounter_thread')`,
         eq(messages.senderType, "staff"),
         isNull(messages.deletedAt),
         or(
@@ -578,7 +654,8 @@ export async function findMessageByClientId(conversationId: string, clientMessag
 
 export async function createPatientStaffConversation(params: {
   tenantId: string;
-  patientId: string;
+  /** Optional legacy employee bridge; null for customer/supplier portal threads. */
+  patientId?: string | null;
   portalUserId: string;
   subject?: string | null;
   bodyText: string;
@@ -600,7 +677,7 @@ export async function createPatientStaffConversation(params: {
         tenantId: params.tenantId,
         type: conversationType,
         subject: params.subject?.trim() || null,
-        patientId: params.patientId,
+        patientId: params.patientId ?? null,
         appointmentId: params.appointmentId ?? null,
         status: "open",
         assignedStaffUserId: params.assignedStaffUserId ?? null,
@@ -656,7 +733,8 @@ export async function createPatientStaffConversation(params: {
 
 export async function createStaffPatientConversation(params: {
   tenantId: string;
-  patientId: string;
+  /** Optional legacy employee bridge; null for customer/supplier portal threads. */
+  patientId?: string | null;
   staffUserId: string;
   subject?: string | null;
   bodyText: string;
@@ -677,7 +755,7 @@ export async function createStaffPatientConversation(params: {
         tenantId: params.tenantId,
         type: conversationType,
         subject: params.subject?.trim() || null,
-        patientId: params.patientId,
+        patientId: params.patientId ?? null,
         appointmentId: params.appointmentId ?? null,
         status: "open",
         assignedStaffUserId: params.staffUserId,
