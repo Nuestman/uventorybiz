@@ -1,9 +1,9 @@
 # uventorybiz — Documentation
 
-**Package version:** 1.0.0 (see repository root `package.json`)  
-**Changelog:** [CHANGELOG.md](./CHANGELOG.md) (includes `[Unreleased]` inventory UX)  
-**Status:** Initial product release + uncommitted inventory improvements  
-**Last documentation review:** July 18, 2026
+**Package version:** 1.1.0 (see repository root `package.json`)  
+**Changelog:** [CHANGELOG.md](./CHANGELOG.md)  
+**Status:** `1.1.0` — business assets, fleet rename, portal support, inventory multi-location  
+**Last documentation review:** July 19, 2026
 
 ## Start here
 
@@ -18,12 +18,14 @@
 | [PORTAL_GUIDE.md](./PORTAL_GUIDE.md) | Customer / supplier portal |
 | [DRIZZLE_MIGRATIONS.md](./DRIZZLE_MIGRATIONS.md) | Schema migrations & seeds |
 
-## Inventory
+## Inventory & fleet
 
 | Doc | Purpose |
 |-----|---------|
 | [INVENTORY_IMPLEMENTATION_SCAN.md](./INVENTORY_IMPLEMENTATION_SCAN.md) | Current inventory API/UI status |
-| [INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md](./INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md) | Design plan (updated for catalog / PO reverse) |
+| [INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md](./INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md) | Design plan (catalog / PO / transfers) |
+| [BUSINESS_ASSETS_MANAGEMENT.md](./BUSINESS_ASSETS_MANAGEMENT.md) | Business assets register (tags, vehicles, ticketing) |
+| [MOBILE_STORE_AND_FLEET_INVENTORY.md](./MOBILE_STORE_AND_FLEET_INVENTORY.md) | Mobile store vs commute fleet, transfers, PO, POS |
 
 ## Other guides
 

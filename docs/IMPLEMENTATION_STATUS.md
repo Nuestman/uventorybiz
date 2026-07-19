@@ -1,8 +1,8 @@
 # uventorybiz — Implementation Status
 
 **Product:** Multi-tenant B2B business management (inventory + POS)  
-**Version:** `1.0.0` (+ inventory UX in working tree — [CHANGELOG.md](./CHANGELOG.md) `[Unreleased]`)  
-**Last updated:** July 18, 2026  
+**Version:** `1.1.0`  
+**Last updated:** July 19, 2026  
 **Repo:** https://github.com/Nuestman/uventorybiz
 
 > Clinical MineAid surfaces live under [`purged/`](../purged/README.md). Historical MineAid release notes: [`purged/docs/CHANGELOG_MINEAID.md`](../purged/docs/CHANGELOG_MINEAID.md).
@@ -18,19 +18,23 @@
 | M4 POS fuller retail | Done (`0006`, [POS_GUIDE.md](./POS_GUIDE.md)) |
 | M5 Polish / verification | Done (ongoing doc cleanup) |
 | Inventory categories (tenant custom) | Done (`0015`) |
-| Product catalog + PO multi-store receive/reverse | Done (unreleased vs initial commit) |
+| Product catalog + PO multi-location receive/reverse | Done (`1.1.0`) |
+| Business Assets + fleet rename + vehicle kind | Done (`0020`–`0024`) |
+| Portal support tickets | Done (`0016`, `0025`) |
 | MineAid clinical docs → `purged/docs/` | Done (Jul 2026) |
 
 ## Current surface
 
 ### Keep (live)
-- **Inventory Management** — per-store stock, **product catalog**, transfers/requisitions, purchase orders (catalog lines, receive any store, reverse receipt), suppliers, categories, alerts
+- **Inventory Management** — per-location stock, **product catalog**, transfers/requisitions, purchase orders (catalog lines, receive store or fleet, reverse receipt), suppliers, categories, alerts
+- **Business Assets** — tagged register (`/assets`); vehicles ↔ fleet stock locations; vehicle kind (commute / mobile store); stationed-at home store
 - **Admin — Store Locations** — fixed-site stores (`care_locations`; business copy)
-- Point of Sale
-- Portal orders / supplier invoices
-- Operations (appointments, incidents, duties, tickets)
-- ShiftOver, Fleet, POC Laboratory (instant tests), Employee Wellbeing
+- Point of Sale (registers can bind to store or fleet location)
+- Portal orders / supplier invoices / **system-issue support tickets**
+- Operations (appointments, incidents, duties, tickets with asset picker + duplicate-category prompt)
+- ShiftOver, Fleet (`/assets/fleet/*`), POC Laboratory (instant tests), Employee Wellbeing
 - Auth, tenancy, admin, notifications, SOP, non-clinical reports
+- Platform feature flags (incl. messaging default off)
 
 ### Purged (not wired)
 - Patients, encounters, medical visits/records, triage/vitals
@@ -39,35 +43,31 @@
 
 ## Database
 
-- Drizzle journal through **`0015_uventorybiz_inventory_categories`**
+- Drizzle journal through **`0025_portal_ticket_attachments`**
 - Seeds: `npm run db:seed`, demo: `npm run db:seed:demo`
 - Guide: [DRIZZLE_MIGRATIONS.md](./DRIZZLE_MIGRATIONS.md)
 
-## Inventory flow (quick)
+## Inventory + mobile store (quick)
 
-1. **Catalog** — define products (`inventory_items`) at `/inventory-catalog`  
-2. **PO** — order from catalog; optional inline supplier create  
-3. **Receive** — into chosen store → creates/updates `inventory_stock` + `receipt_external`  
-4. **Reverse** — undo receipt from a store → `return_to_supplier`  
-5. **Transfer** — move stock between stores via Stock Transfers  
-6. **Low stock** — Request stock or Create PO from Inventory row menu  
+1. **Catalog** — define products at `/inventory-catalog`  
+2. **PO** — order from catalog; receive into store **or** fleet unit  
+3. **Transfer** — Main Store ↔ mobile-store fleet location  
+4. **POS** — optional register on fleet location for van sales  
 
-Details: [INVENTORY_IMPLEMENTATION_SCAN.md](./INVENTORY_IMPLEMENTATION_SCAN.md)
+Details: [MOBILE_STORE_AND_FLEET_INVENTORY.md](./MOBILE_STORE_AND_FLEET_INVENTORY.md) · [INVENTORY_IMPLEMENTATION_SCAN.md](./INVENTORY_IMPLEMENTATION_SCAN.md)
 
 ## Known residuals
 
 - Workspace folder may still be named `uventory` while the product is **uventorybiz** — rename after closing the IDE ([UVENTORYBIZ.md](./UVENTORYBIZ.md))
 - Appointment UI still carries some telehealth modality labels; telecare routes/packages are removed
-- Large `server/storage.ts` not fully split (POS/customers extracted where needed)
-- Transactions / Transaction History UI still show legacy type labels
-- PO receive does not yet capture batch/lot/expiry per line
+- Messaging is platform-flagged off by default — enable in Super Admin when needed
 
-## Related docs
+## Docs map
 
-- [UVENTORYBIZ.md](./UVENTORYBIZ.md) — short product overview
-- [VERSION.md](./VERSION.md) — current version line
-- [CHANGELOG.md](./CHANGELOG.md) — release + unreleased notes
-- [NEXT_DEV_SESSION.md](./NEXT_DEV_SESSION.md) — resume checklist
-- [INVENTORY_IMPLEMENTATION_SCAN.md](./INVENTORY_IMPLEMENTATION_SCAN.md) — inventory status
-- [INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md](./INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md) — inventory design plan
-- [PORTAL_GUIDE.md](./PORTAL_GUIDE.md), [POS_GUIDE.md](./POS_GUIDE.md)
+| Doc | Use |
+|-----|-----|
+| [CHANGELOG.md](./CHANGELOG.md) | Release notes |
+| [VERSION.md](./VERSION.md) | Semver |
+| [BUSINESS_ASSETS_MANAGEMENT.md](./BUSINESS_ASSETS_MANAGEMENT.md) | Assets register |
+| [MOBILE_STORE_AND_FLEET_INVENTORY.md](./MOBILE_STORE_AND_FLEET_INVENTORY.md) | Fleet ↔ inventory |
+| [NEXT_DEV_SESSION.md](./NEXT_DEV_SESSION.md) | Resume checklist |

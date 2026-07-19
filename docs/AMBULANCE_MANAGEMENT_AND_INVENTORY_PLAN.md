@@ -3,7 +3,7 @@
 **Version:** 1.1.0  
 **Status:** Phase 1 implemented (fleet register, pre-start checks, on-board inventory, transfer receive); this document now tracks current state + next phases  
 **Last Updated:** April 1, 2026  
-**Related docs:** [INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md](./INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md), [MULTI_LOCATION_SYSTEM_DOCUMENTATION.md](./MULTI_LOCATION_SYSTEM_DOCUMENTATION.md), [RBAC.md](./RBAC.md)
+**Related docs:** [INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md](./INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md), [MULTI_LOCATION_SYSTEM_DOCUMENTATION.md](./MULTI_LOCATION_SYSTEM_DOCUMENTATION.md), [RBAC.md](./RBAC.md), [BUSINESS_ASSETS_MANAGEMENT.md](./BUSINESS_ASSETS_MANAGEMENT.md) (vehicles as `business_assets` with linked stock locations)
 
 ---
 

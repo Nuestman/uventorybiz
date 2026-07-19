@@ -83,7 +83,7 @@ POST /api/auth/register
 1. User logs in via `/api/auth/login` with email/phone and password
 2. System validates credentials against database
 3. **Tenant-bound users**: Login is blocked if the user's tenant is not **active** (message: "Your organization has not been activated yet")
-4. Creates session token (**12-hour absolute** max, **30-minute idle** timeout by default — configurable per tenant under **Settings → Security**)
+4. Creates session token (**24-hour absolute** max, **30-minute idle** timeout by default — configurable per tenant under **Settings → Security**)
 5. **Session validation**: On every request, idle and absolute limits are enforced; expired sessions return 401. Tenant-bound users' sessions are also invalidated if their tenant becomes inactive.
 6. **Optional MFA**: When enabled for the tenant (or for individual users), login returns an MFA challenge before a full session is issued. See [SESSION_SECURITY_AND_MFA.md](./SESSION_SECURITY_AND_MFA.md).
 7. Returns user data with `redirectTo` hint:

@@ -634,7 +634,7 @@ function UserManagement({ makeAdminRequest }: { makeAdminRequest: (method: strin
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-24">ID</TableHead>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
@@ -646,7 +646,7 @@ function UserManagement({ makeAdminRequest }: { makeAdminRequest: (method: strin
               <TableBody>
                 {filteredUsers.map((user: User, index: number) => (
                   <TableRow key={user.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                    <TableCell className="font-medium">{index + 1}</TableCell>
+                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                     <TableCell className="font-medium">{user.firstName} {user.lastName}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell><RoleBadge role={user.role} /></TableCell>
@@ -1455,7 +1455,7 @@ function CompanyManagement({ onViewEmployees }: { onViewEmployees: (companyId: s
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-24">ID</TableHead>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Company Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Contact Email</TableHead>
@@ -1469,7 +1469,7 @@ function CompanyManagement({ onViewEmployees }: { onViewEmployees: (companyId: s
               <TableBody>
                 {companiesArray.map((company: Company, index: number) => (
                   <TableRow key={company.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                    <TableCell className="font-medium">{index + 1}</TableCell>
+                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                     <TableCell className="font-medium">{company.name}</TableCell>
                     <TableCell><Badge variant="outline">{formatCompanyType(company.companyType)}</Badge></TableCell>
                     <TableCell>{company.contactEmail}</TableCell>
@@ -2470,7 +2470,7 @@ function NewEmployeeManagement({ initialCompanyFilter }: { initialCompanyFilter?
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-24">ID</TableHead>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Employee #</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
@@ -2484,7 +2484,7 @@ function NewEmployeeManagement({ initialCompanyFilter }: { initialCompanyFilter?
               <TableBody>
                 {filteredEmployees.map((employee: Employee, index: number) => (
                   <TableRow key={employee.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                    <TableCell className="font-medium">{index + 1}</TableCell>
+                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                     <TableCell className="font-medium">{employee.employeeNumber}</TableCell>
                     <TableCell className="font-medium">{employee.firstName} {employee.lastName}</TableCell>
                     <TableCell>{employee.email}</TableCell>
@@ -2927,7 +2927,7 @@ function NotificationCenter() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-16">ID</TableHead>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Title</TableHead>
                       <TableHead>Message</TableHead>
                       <TableHead>Channel</TableHead>
@@ -2938,7 +2938,7 @@ function NotificationCenter() {
                   <TableBody>
                     {notificationsArray.map((notification: any, index: number) => (
                       <TableRow key={notification.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                        <TableCell className="font-medium">{index + 1}</TableCell>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="font-medium">{notification.title}</TableCell>
                         <TableCell>{notification.message}</TableCell>
                         <TableCell>
@@ -3053,7 +3053,7 @@ function AuditTrailView({ makeAdminRequest }: { makeAdminRequest: (method: strin
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">ID</TableHead>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead>Resource Type</TableHead>
                   <TableHead>Resource ID</TableHead>
@@ -3065,7 +3065,7 @@ function AuditTrailView({ makeAdminRequest }: { makeAdminRequest: (method: strin
               <TableBody>
                 {auditLogs.map((log: any, index: number) => (
                   <TableRow key={log.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                    <TableCell className="font-medium">{index + 1}</TableCell>
+                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                     <TableCell><Badge variant="outline">{log.action}</Badge></TableCell>
                     <TableCell className="font-medium">{log.resourceType}</TableCell>
                     <TableCell className="font-mono text-xs">{log.resourceId?.slice(-8) || '-'}</TableCell>
@@ -3205,6 +3205,7 @@ function ReferralFacilitiesManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Address</TableHead>
                     <TableHead>Contact</TableHead>
@@ -3214,8 +3215,9 @@ function ReferralFacilitiesManagement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {facilities.map((f: any) => (
+                  {facilities.map((f: any, index: number) => (
                     <TableRow key={f.id}>
+                      <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                       <TableCell className="font-medium">{f.name}</TableCell>
                       <TableCell className="text-muted-foreground max-w-[200px] truncate">{f.address || "—"}</TableCell>
                       <TableCell className="text-muted-foreground">{f.contactPhone || "—"}</TableCell>
@@ -3714,7 +3716,7 @@ function StoreLocationsManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16">ID</TableHead>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Store name</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Address</TableHead>
@@ -3729,7 +3731,7 @@ function StoreLocationsManagement() {
                 <TableBody>
                   {filteredLocations.map((location: any, index: number) => (
                     <TableRow key={location.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                      <TableCell className="font-medium">{index + 1}</TableCell>
+                      <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                       <TableCell className="font-medium">{location.locationName}</TableCell>
                       <TableCell><Badge variant="outline">{location.locationCode}</Badge></TableCell>
                       <TableCell>{location.address || '-'}</TableCell>

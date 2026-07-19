@@ -9,7 +9,6 @@ import {
   History,
   ClipboardList,
   Package,
-  Wrench,
   ShoppingCart,
   Store,
   ArrowRightLeft,
@@ -27,7 +26,6 @@ import {
   Building2,
   PhoneCall,
   MessageSquare,
-  Ambulance,
   Ticket,
   ReceiptText,
   ScrollText,
@@ -36,6 +34,7 @@ import {
   ListTodo,
   Bell,
   LayoutDashboard,
+  Wrench,
 } from "lucide-react";
 import {
   SidebarGroupConfig,
@@ -356,10 +355,10 @@ const inventoryGroup: SidebarGroupConfig = {
       description: "Historical transaction records",
     },
     {
-      title: "Equipment Tracking",
+      title: "Equipment checks",
       url: "/equipment-tracking",
       icon: Wrench,
-      description: "Equipment status & maintenance",
+      description: "Equipment status and maintenance schedules",
     },
   ],
 };
@@ -476,10 +475,10 @@ const dashboardItem: SidebarGroupConfig = {
   ],
 };
 
-/** Fleet (formerly Ambulance & EMS) */
-const fleetModule: SidebarGroupConfig = {
-  label: "Fleet",
-  icon: Ambulance,
+/** Business Assets: register overview + fleet ops (real paths, not /fleet# hash tabs) */
+const businessAssetsItem: SidebarGroupConfig = {
+  label: "Business Assets",
+  icon: Package,
   isDropdown: true,
   rbac: {
     allowedRoles: ["fleet_operator", "staff", "admin", "super_admin"],
@@ -487,25 +486,48 @@ const fleetModule: SidebarGroupConfig = {
   },
   items: [
     {
-      title: "Fleet",
-      url: "/fleet#fleet",
-      icon: Truck,
-      description: "Fleet register and vehicles",
+      title: "All assets",
+      url: "/assets",
+      icon: Package,
+      description: "Tagged fixed assets register (equipment, vehicles, IT, tools)",
       featureFlag: "fleet",
+      rbac: {
+        allowedRoles: ["fleet_operator", "staff", "admin", "super_admin"],
+        requiresTenant: true,
+      },
+    },
+    {
+      title: "Fleet",
+      url: "/assets/fleet",
+      icon: Truck,
+      description: "Vehicle register and ops status",
+      featureFlag: "fleet",
+      rbac: {
+        allowedRoles: ["fleet_operator", "staff", "admin", "super_admin"],
+        requiresTenant: true,
+      },
     },
     {
       title: "Pre-start checks",
-      url: "/fleet#pre-start",
+      url: "/assets/fleet/pre-start",
       icon: ClipboardCheck,
       description: "Shift pre-start safety checks",
       featureFlag: "fleet",
+      rbac: {
+        allowedRoles: ["fleet_operator", "staff", "admin", "super_admin"],
+        requiresTenant: true,
+      },
     },
     {
       title: "On-board inventory",
-      url: "/fleet#inventory",
+      url: "/assets/fleet/inventory",
       icon: Package,
       description: "Consumables and equipment by vehicle",
       featureFlag: "fleet",
+      rbac: {
+        allowedRoles: ["fleet_operator", "staff", "admin", "super_admin"],
+        requiresTenant: true,
+      },
     },
   ],
 };
@@ -518,7 +540,7 @@ export const sidebarConfig: SidebarGroupConfig[] = [
   wellbeingGroup,
   operationsGroup,
   shiftOverGroup,
-  fleetModule,
+  businessAssetsItem,
   testingGroup,
   inventoryGroup,
   reportsGroup,

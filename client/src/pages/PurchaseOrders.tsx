@@ -223,14 +223,21 @@ export default function PurchaseOrders() {
     }
   });
 
-  // Stores for PO receive destination (fixed sites only)
+  // Receive destinations: fixed stores and fleet units (mobile collect from supplier).
   const { data: storeLocations = [] } = useQuery<
-    Array<{ id: string; locationName: string; locationCode: string; isPrimary?: boolean; status?: string }>
+    Array<{
+      id: string;
+      locationName: string;
+      locationCode: string;
+      isPrimary?: boolean;
+      status?: string;
+      locationKind?: string;
+    }>
   >({
-    queryKey: ['/api/care-locations', { locationKind: 'fixed_site' }],
+    queryKey: ['/api/care-locations', { includeInactive: false }],
     queryFn: async () => {
-      const res = await fetch('/api/care-locations?locationKind=fixed_site', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch store locations');
+      const res = await fetch('/api/care-locations', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch locations');
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
@@ -1573,41 +1580,40 @@ export default function PurchaseOrders() {
             <DialogDescription>
               {selectedPO?.poNumber} – Enter quantities received
               {isMultiLocation || activeStores.length > 1
-                ? ' and choose which store gets the stock.'
-                : '. Stock will update at your store.'}
+                ? ' and choose which store or fleet unit gets the stock.'
+                : '. Stock will update at your default location.'}
             </DialogDescription>
           </DialogHeader>
           {selectedPO && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="receive-location">
-                  Receive into store {(isMultiLocation || activeStores.length > 1) && <span className="text-destructive">*</span>}
+                  Receive into location {(isMultiLocation || activeStores.length > 1) && <span className="text-destructive">*</span>}
                 </Label>
                 <Select
                   value={receiveLocationId || defaultReceiveLocationId || undefined}
                   onValueChange={setReceiveLocationId}
                 >
                   <SelectTrigger id="receive-location" data-testid="select-receive-location">
-                    <SelectValue placeholder="Select store" />
+                    <SelectValue placeholder="Select store or fleet unit" />
                   </SelectTrigger>
                   <SelectContent>
                     {activeStores.map((loc) => (
                       <SelectItem key={loc.id} value={loc.id}>
                         {loc.locationCode} – {loc.locationName}
-                        {loc.isPrimary ? ' (Primary)' : ''}
+                        {loc.locationKind === 'fleet' ? ' (Fleet)' : loc.isPrimary ? ' (Primary)' : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {!isMultiLocation && activeStores.length <= 1 && (
-                  <p className="text-xs text-muted-foreground">
-                    Single-store mode: stock is received into your primary store.
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Includes fixed stores and fleet units (e.g. when a vehicle collects goods from a supplier).
+                </p>
               </div>
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Item</TableHead>
                     <TableHead>Ordered</TableHead>
                     <TableHead>Already received</TableHead>
@@ -1615,10 +1621,11 @@ export default function PurchaseOrders() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {poItems.map((line) => {
+                  {poItems.map((line, index) => {
                     const remaining = (line.quantityOrdered ?? 0) - (line.quantityReceived ?? 0);
                     return (
                       <TableRow key={line.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell>
                           <div className="font-medium">{line.itemName ?? getItemName(line.itemId)}</div>
                           <div className="text-sm text-muted-foreground">{line.itemCode ?? getItemCode(line.itemId)}</div>
@@ -1688,31 +1695,32 @@ export default function PurchaseOrders() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="reverse-location">
-                  Reverse from store <span className="text-destructive">*</span>
+                  Reverse from location <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={reverseLocationId || defaultReceiveLocationId || undefined}
                   onValueChange={setReverseLocationId}
                 >
                   <SelectTrigger id="reverse-location">
-                    <SelectValue placeholder="Select store" />
+                    <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent>
                     {activeStores.map((loc) => (
                       <SelectItem key={loc.id} value={loc.id}>
                         {loc.locationCode} – {loc.locationName}
-                        {loc.isPrimary ? ' (Primary)' : ''}
+                        {loc.locationKind === 'fleet' ? ' (Fleet)' : loc.isPrimary ? ' (Primary)' : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Choose the store that originally received this stock. Reversal fails if that store no longer has enough quantity.
+                  Choose the location that originally received this stock. Reversal fails if that location no longer has enough quantity.
                 </p>
               </div>
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Item</TableHead>
                     <TableHead>Received</TableHead>
                     <TableHead>Stock here</TableHead>
@@ -1722,12 +1730,13 @@ export default function PurchaseOrders() {
                 <TableBody>
                   {poItems
                     .filter((line) => (line.quantityReceived ?? 0) > 0)
-                    .map((line) => {
+                    .map((line, index) => {
                       const received = line.quantityReceived ?? 0;
                       const onHand = stockAtReverseLocation(line.itemId);
                       const maxReverse = Math.min(received, onHand);
                       return (
                         <TableRow key={line.id}>
+                          <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                           <TableCell>
                             <div className="font-medium">{line.itemName ?? getItemName(line.itemId)}</div>
                             <div className="text-sm text-muted-foreground">{line.itemCode ?? getItemCode(line.itemId)}</div>
@@ -1845,6 +1854,7 @@ export default function PurchaseOrders() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Item</TableHead>
                       <TableHead>Ordered</TableHead>
                       <TableHead>Received</TableHead>
@@ -1853,8 +1863,9 @@ export default function PurchaseOrders() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {poItems.map((item) => (
+                    {poItems.map((item, index) => (
                       <TableRow key={item.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell>
                           <div>
                             <div className="font-medium">{item.itemName ?? getItemName(item.itemId)}</div>

@@ -177,6 +177,7 @@ export default function WellbeingFeedbackPoster() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">#</TableHead>
                         <TableHead className="w-10">
                           <input
                             type="checkbox"
@@ -192,13 +193,14 @@ export default function WellbeingFeedbackPoster() {
                     <TableBody>
                       {filteredEmployees.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="text-center text-xs text-slate-500">
+                          <TableCell colSpan={5} className="text-center text-xs text-slate-500">
                             {employeesLoading ? "Loading employees..." : "No employees match your search."}
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredEmployees.map((emp) => (
+                        filteredEmployees.map((emp, index) => (
                           <TableRow key={emp.id}>
+                            <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                             <TableCell>
                               <input
                                 type="checkbox"

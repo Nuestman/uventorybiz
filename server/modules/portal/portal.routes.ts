@@ -52,10 +52,42 @@ import {
   submitSupplierInvoice,
 } from "./portal-orders.service";
 import { isReturnsEnabled } from "./portal-orders.repository";
+import {
+  addPortalSupportAttachment,
+  addPortalSupportComment,
+  createPortalSupportTicket,
+  getPortalSupportTicketDetail,
+  listPortalSupportCategories,
+  listPortalSupportTickets,
+} from "./portal-support-tickets.service";
+import { isFeatureEnabled } from "../feature-flags/feature-flags.service";
 
 const PORTAL_COOKIE = "portalSessionToken";
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
+
+async function portalFeaturesForSession(raw: unknown): Promise<repo.PortalFeatures> {
+  const base = repo.mergePortalFeatures(raw);
+  const ticketsOn = await isFeatureEnabled("tickets");
+  const messagingOn = await isFeatureEnabled("messaging");
+  return {
+    ...base,
+    tickets: ticketsOn,
+    messaging: base.messaging && messagingOn,
+  };
+}
+
+const portalSupportCreateSchema = z.object({
+  title: z.string().min(3).max(200),
+  description: z.string().min(10).max(8000),
+  priority: z.enum(["low", "normal", "high"]).optional(),
+  categoryId: z.string().uuid(),
+  otherCategoryDetail: z.string().max(500).optional(),
+});
+
+const portalSupportCommentSchema = z.object({
+  body: z.string().min(1).max(8000),
+});
 
 const portalLoginSchema = z
   .object({
@@ -224,6 +256,11 @@ const requirePortalMessagingFeature: RequestHandler = async (req: any, res, next
   try {
     const p = req.portal;
     if (!p?.tenantId) return sendError(res, 401, "Portal session required");
+    if (!(await isFeatureEnabled("messaging"))) {
+      return sendError(res, 403, "Secure messaging is currently disabled by the platform administrator", {
+        code: "FEATURE_DISABLED",
+      });
+    }
     const settings = await repo.getTenantPortalSettingsRow(p.tenantId);
     const features = repo.mergePortalFeatures(settings?.featuresJson);
     if (!features.messaging) {
@@ -245,6 +282,8 @@ export interface PortalRoutesDeps {
 
 export function createPortalRouter(deps: PortalRoutesDeps): Router {
   const { storage, authService, portalAvatarUpload, messagingUpload } = deps;
+  /** Same memory multer as messaging — images + PDF for support screenshots. */
+  const supportUpload = messagingUpload;
   const router = Router();
   const portalSessionMw = createPortalSessionMiddleware();
 
@@ -455,7 +494,7 @@ export function createPortalRouter(deps: PortalRoutesDeps): Router {
     });
 
     const ctx = await repo.loadPortalContext(pu.id);
-    const features = repo.mergePortalFeatures(ctx?.settings?.featuresJson);
+    const features = await portalFeaturesForSession(ctx?.settings?.featuresJson);
     const sessionUser = ctx ? repo.buildPortalSessionUser(ctx) : {
       email: pu.email,
       partyType: pu.partyType,
@@ -543,7 +582,7 @@ export function createPortalRouter(deps: PortalRoutesDeps): Router {
     if (!req.portal?.portalUserId) return res.json(null);
     const ctx = await repo.loadPortalContext(req.portal.portalUserId);
     if (!ctx) return res.json(null);
-    const features = repo.mergePortalFeatures(ctx.settings?.featuresJson);
+    const features = await portalFeaturesForSession(ctx.settings?.featuresJson);
     res.json({
       features,
       user: repo.buildPortalSessionUser(ctx),
@@ -597,7 +636,7 @@ export function createPortalRouter(deps: PortalRoutesDeps): Router {
     const p = req.portal!;
     const ctx = await repo.loadPortalContext(p.portalUserId);
     if (!ctx) return sendError(res, 404, "Not found");
-    const features = repo.mergePortalFeatures(ctx.settings?.featuresJson);
+    const features = await portalFeaturesForSession(ctx.settings?.featuresJson);
     const base = {
       features,
       partyType: ctx.partyType,
@@ -1461,6 +1500,161 @@ export function createPortalRouter(deps: PortalRoutesDeps): Router {
       requirePortalMessagingFeature,
       messagingUpload,
     }),
+  );
+
+  const requirePortalTicketsFeature: RequestHandler = async (_req, res, next) => {
+    if (!(await isFeatureEnabled("tickets"))) {
+      return sendError(res, 403, "Support tickets are disabled");
+    }
+    next();
+  };
+
+  router.get(
+    "/portal/support-tickets",
+    requirePortalAuth,
+    requirePortalTicketsFeature,
+    async (req: any, res) => {
+      const p = req.portal!;
+      const status = typeof req.query.status === "string" ? req.query.status : undefined;
+      const result = await listPortalSupportTickets(storage, p.tenantId, p.portalUserId, { status });
+      if (!result.ok) return sendError(res, 500, result.error);
+      res.json(result.data);
+    }
+  );
+
+  router.get(
+    "/portal/support-tickets/categories",
+    requirePortalAuth,
+    requirePortalTicketsFeature,
+    async (req: any, res) => {
+      const p = req.portal!;
+      const result = await listPortalSupportCategories(storage, p.tenantId);
+      if (!result.ok) return sendError(res, 500, result.error);
+      res.json(result.data);
+    }
+  );
+
+  router.post(
+    "/portal/support-tickets",
+    requirePortalAuth,
+    requirePortalTicketsFeature,
+    validateBody(portalSupportCreateSchema),
+    async (req: any, res) => {
+      const p = req.portal!;
+      const body = req.body as z.infer<typeof portalSupportCreateSchema>;
+      const result = await createPortalSupportTicket(storage, {
+        tenantId: p.tenantId,
+        portalUserId: p.portalUserId,
+        portalEmail: p.email ?? "portal user",
+        title: body.title,
+        description: body.description,
+        priority: body.priority,
+        categoryId: body.categoryId,
+        otherCategoryDetail: body.otherCategoryDetail,
+      });
+      if (!result.ok) {
+        const status = result.code === "INVALID" ? 400 : 500;
+        return sendError(res, status, result.error);
+      }
+      await repo.insertPortalAudit({
+        tenantId: p.tenantId,
+        portalUserId: p.portalUserId,
+        action: "support_ticket_created",
+        details: { ticketId: result.data.id, ticketNumber: result.data.ticketNumber },
+        ...clientMeta(req),
+      });
+      res.status(201).json(result.data);
+    }
+  );
+
+  router.get(
+    "/portal/support-tickets/:id",
+    requirePortalAuth,
+    requirePortalTicketsFeature,
+    async (req: any, res) => {
+      const p = req.portal!;
+      const result = await getPortalSupportTicketDetail(
+        storage,
+        p.tenantId,
+        p.portalUserId,
+        req.params.id
+      );
+      if (!result.ok) {
+        const status = result.code === "NOT_FOUND" ? 404 : 500;
+        return sendError(res, status, result.error);
+      }
+      res.json(result.data);
+    }
+  );
+
+  router.post(
+    "/portal/support-tickets/:id/comments",
+    requirePortalAuth,
+    requirePortalTicketsFeature,
+    validateBody(portalSupportCommentSchema),
+    async (req: any, res) => {
+      const p = req.portal!;
+      const body = req.body as z.infer<typeof portalSupportCommentSchema>;
+      const result = await addPortalSupportComment(storage, {
+        tenantId: p.tenantId,
+        portalUserId: p.portalUserId,
+        ticketId: req.params.id,
+        body: body.body,
+      });
+      if (!result.ok) {
+        const status =
+          result.code === "NOT_FOUND"
+            ? 404
+            : result.code === "FORBIDDEN"
+              ? 403
+              : result.code === "INVALID"
+                ? 400
+                : 500;
+        return sendError(res, status, result.error);
+      }
+      res.status(201).json(result.data);
+    }
+  );
+
+  router.post(
+    "/portal/support-tickets/:id/attachments",
+    requirePortalAuth,
+    requirePortalTicketsFeature,
+    supportUpload.single("file"),
+    async (req: any, res) => {
+      try {
+        const p = req.portal!;
+        const file = req.file as Express.Multer.File | undefined;
+        if (!file?.buffer) return sendError(res, 400, "No file uploaded");
+        const { FileStorageService } = await import("../../fileStorage");
+        const fileStorage = new FileStorageService();
+        const uploadPath = await fileStorage.getPublicUploadPath({
+          tenantId: p.tenantId,
+          category: "ticket-documents",
+          itemName: file.originalname,
+          mimetype: file.mimetype,
+        });
+        const url = await fileStorage.saveFile(uploadPath, file.buffer);
+        const result = await addPortalSupportAttachment(storage, {
+          tenantId: p.tenantId,
+          portalUserId: p.portalUserId,
+          ticketId: req.params.id,
+          fileUrl: url,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+        });
+        if (!result.ok) {
+          const status =
+            result.code === "FORBIDDEN" ? 403 : result.code === "INVALID" ? 400 : 500;
+          return sendError(res, status, result.error);
+        }
+        res.status(201).json(result.data);
+      } catch (e) {
+        console.error("portal support attachment upload:", e);
+        sendError(res, 500, e instanceof Error ? e.message : "Upload failed");
+      }
+    }
   );
 
   return router;

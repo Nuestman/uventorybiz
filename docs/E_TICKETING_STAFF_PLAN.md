@@ -3,7 +3,7 @@
 **Version:** 1.2.0  
 **Status:** **Implemented** (core product: schema, API, UI, TinyMCE, sanitization, attachments, activity, RBAC, Blob-aligned storage, requester vs admin PATCH split). SLA/email analytics remain future phases.  
 **Last Updated:** April 1, 2026  
-**Related docs:** [RBAC.md](./RBAC.md), [AUTH_SYSTEM.md](./AUTH_SYSTEM.md), [TENANT_SETTINGS_AND_BRANDING.md](./TENANT_SETTINGS_AND_BRANDING.md)
+**Related docs:** [AUTH_SYSTEM.md](./AUTH_SYSTEM.md), [TENANT_SETTINGS_AND_BRANDING.md](./TENANT_SETTINGS_AND_BRANDING.md), [BUSINESS_ASSETS_MANAGEMENT.md](./BUSINESS_ASSETS_MANAGEMENT.md)
 
 ---
 
@@ -66,9 +66,18 @@ Tickets are **not** patient-facing; they are **internal operations** requests. E
 
 ### Non-goals (initial phase)
 
-- **Customer-facing** helpdesk for external parties (out of scope; see [PATIENT_PORTAL_PLAN.md](./PATIENT_PORTAL_PLAN.md) for patient-facing work).
+- **Full commercial helpdesk** for purchase disputes, invoice disputes, or clinical advice (those stay in orders / messaging / support email).
 - **Full ITIL** suite (problem management, change management, CMDB) unless scoped later.
-- **Real-time chat** inside tickets (optional future: threaded comments suffice for MVP).
+- **Real-time chat** inside tickets (threaded public comments suffice for MVP).
+
+### Portal system issues (added Jul 2026)
+
+Customers and suppliers can file **system-related** issues from the portal (`/portal/support`):
+
+- APIs under `/api/portal/support-tickets` (requires platform flags `portal` + `tickets`)
+- Tickets use `source = portal`, `requester_portal_user_id`, category slug `it-systems`
+- Staff triage in the existing Tickets UI (Portal badge / source filter)
+- Staff notified via `portal_system_issue`
 
 ---
 
@@ -129,7 +138,8 @@ Tickets are **not** patient-facing; they are **internal operations** requests. E
 - `assignee_user_id` — nullable; FK → `users`
 - `location_id` — nullable FK → `care_locations` (where issue applies)
 - `related_incident_id` — nullable FK — **optional** link to formal incident
-- `related_equipment_id` or free-text **asset tag** — optional
+- `asset_id` — nullable FK → `business_assets` (preferred); UI uses asset dropdown. Legacy free-text `asset_tag` may still be stored as a display snapshot. See [BUSINESS_ASSETS_MANAGEMENT.md](./BUSINESS_ASSETS_MANAGEMENT.md).
+- ~~`related_equipment_id` or free-text **asset tag**~~ — superseded by `asset_id`
 - `resolved_at`, `closed_at`
 - `created_at`, `updated_at`, `created_by`, `updated_by`
 

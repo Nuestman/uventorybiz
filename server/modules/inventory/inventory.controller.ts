@@ -21,7 +21,7 @@ export function createInventoryController(storage: IStorage) {
         status?: string;
         lowStock?: boolean;
         locationId?: string;
-        locationKind?: "fixed_site" | "ambulance";
+        locationKind?: "fixed_site" | "fleet";
       }
     ): Promise<InventoryResult<MedicalInventory[]>> {
       try {

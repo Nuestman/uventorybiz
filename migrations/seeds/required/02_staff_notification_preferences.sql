@@ -59,7 +59,7 @@ SELECT u.tenant_id, u.id, nt.id, ch.channel, TRUE
 FROM users u
 CROSS JOIN notification_types nt
 CROSS JOIN (VALUES ('email'), ('in_app')) AS ch(channel)
-WHERE nt.key IN ('portal_access_request', 'portal_order_placed', 'portal_order_issue', 'supplier_invoice_submitted')
+WHERE nt.key IN ('portal_access_request', 'portal_order_placed', 'portal_order_issue', 'portal_system_issue', 'supplier_invoice_submitted')
   AND u.tenant_id IS NOT NULL
   AND u.role = 'admin'
   AND u.status = 'active'

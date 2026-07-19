@@ -259,6 +259,7 @@ export default function AdminLegalAgreements() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>File</TableHead>
                   <TableHead>Uploaded</TableHead>
@@ -267,8 +268,9 @@ export default function AdminLegalAgreements() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {docs.map((row) => (
+                {docs.map((row, index) => (
                   <TableRow key={row.id}>
+                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                     <TableCell className="font-medium">{labelForType(row.documentType)}</TableCell>
                     <TableCell className="max-w-[200px] truncate" title={row.originalFilename}>
                       {row.originalFilename}

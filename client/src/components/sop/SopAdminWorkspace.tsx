@@ -828,6 +828,7 @@ export default function SopAdminWorkspace() {
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
+                            <TableHead className="w-12">#</TableHead>
                             <TableHead className="w-16">Ver.</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Created</TableHead>
@@ -835,11 +836,14 @@ export default function SopAdminWorkspace() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {detailData.versions.map((v) => (
+                          {detailData.versions.map((v, index) => (
                             <TableRow
                               key={v.id}
                               className={cn(v.id === focusVersionId && "bg-[#142F5C]/5")}
                             >
+                              <TableCell className="font-medium text-muted-foreground tabular-nums">
+                                {index + 1}
+                              </TableCell>
                               <TableCell
                                 className="font-mono font-medium cursor-pointer select-none"
                                 onClick={() => setFocusVersionId(v.id)}

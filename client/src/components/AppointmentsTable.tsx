@@ -72,6 +72,7 @@ function AppointmentsTableBody({
       <Table>
         <TableHeader className={splitColumn ? "sticky top-0 z-10 bg-white" : undefined}>
           <TableRow>
+            <TableHead className="w-12">#</TableHead>
             <TableHead>Attendee</TableHead>
             {!splitColumn ? <TableHead>Type</TableHead> : null}
             {!splitColumn ? <TableHead>Modality</TableHead> : null}
@@ -82,8 +83,9 @@ function AppointmentsTableBody({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {appointments.map((row) => (
+          {appointments.map((row, index) => (
             <TableRow key={row.id}>
+              <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
               <TableCell>
                 <div className="font-medium text-gray-900">
                   {row.employee?.firstName || "Unknown"} {row.employee?.lastName || "Employee"}

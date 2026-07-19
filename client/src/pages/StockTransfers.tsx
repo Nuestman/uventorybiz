@@ -419,6 +419,7 @@ export default function StockTransfers() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>From</TableHead>
                       <TableHead>To</TableHead>
                       <TableHead>Status</TableHead>
@@ -427,8 +428,9 @@ export default function StockTransfers() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {requisitionsForMyLocation.map((r) => (
+                    {requisitionsForMyLocation.map((r, index) => (
                       <TableRow key={r.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="text-xs">{loc(r.requestingLocationId)?.locationCode ?? r.requestingLocationId}</TableCell>
                         <TableCell className="text-xs">{loc(r.fulfillingLocationId)?.locationCode ?? r.fulfillingLocationId}</TableCell>
                         <TableCell>{statusBadge(r.status)}</TableCell>
@@ -501,6 +503,7 @@ export default function StockTransfers() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>To</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Items</TableHead>
@@ -508,8 +511,9 @@ export default function StockTransfers() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transfersOut.map((t) => (
+                    {transfersOut.map((t, index) => (
                       <TableRow key={t.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="text-xs">{loc(t.toLocationId)?.locationCode ?? t.toLocationId}</TableCell>
                         <TableCell>{statusBadge(t.status)}</TableCell>
                         <TableCell className="text-xs">{t.items?.length ?? 0} line(s)</TableCell>
@@ -558,6 +562,7 @@ export default function StockTransfers() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>From</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Items</TableHead>
@@ -565,8 +570,9 @@ export default function StockTransfers() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transfersIn.map((t) => (
+                    {transfersIn.map((t, index) => (
                       <TableRow key={t.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="text-xs">{loc(t.fromLocationId)?.locationCode ?? t.fromLocationId}</TableCell>
                         <TableCell>{statusBadge(t.status)}</TableCell>
                         <TableCell className="text-xs">{t.items?.length ?? 0} line(s)</TableCell>
@@ -859,6 +865,7 @@ export default function StockTransfers() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Item</TableHead>
                     <TableHead>Requested</TableHead>
                     <TableHead>Approved to send</TableHead>
@@ -867,6 +874,7 @@ export default function StockTransfers() {
                 <TableBody>
                   {approveLines.map((line, idx) => (
                       <TableRow key={line.itemId || idx}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{idx + 1}</TableCell>
                         <TableCell className="text-xs">
                           {getItemName(line.itemId) || "Unknown item"}
                         </TableCell>
@@ -949,14 +957,16 @@ export default function StockTransfers() {
                 <Table className="min-w-[320px]">
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Item</TableHead>
                       <TableHead className="w-28">Requested</TableHead>
                       <TableHead className="w-28">Approved</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(viewRequisitionTarget.items || []).map((it) => (
+                    {(viewRequisitionTarget.items || []).map((it, index) => (
                       <TableRow key={it.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="text-xs">{getItemName(it.itemId)}</TableCell>
                         <TableCell className="text-xs">{it.requestedQuantity}</TableCell>
                         <TableCell className="text-xs">{it.approvedQuantity ?? "-"}</TableCell>
@@ -1068,13 +1078,15 @@ export default function StockTransfers() {
                 <Table className="min-w-[320px]">
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Item</TableHead>
                       <TableHead className="w-32">Quantity</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(receiveTransferTarget.items || []).map((it) => (
+                    {(receiveTransferTarget.items || []).map((it, index) => (
                       <TableRow key={it.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="text-xs">{getItemName(it.itemId)}</TableCell>
                         <TableCell className="text-xs">{it.quantityDispatched ?? it.quantityPlanned}</TableCell>
                       </TableRow>
@@ -1139,6 +1151,7 @@ export default function StockTransfers() {
                 <Table className="min-w-[400px]">
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Item</TableHead>
                       <TableHead className="w-32">Planned</TableHead>
                       <TableHead className="w-32">Dispatched</TableHead>
@@ -1146,8 +1159,9 @@ export default function StockTransfers() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(viewTransferTarget.items || []).map((it) => (
+                    {(viewTransferTarget.items || []).map((it, index) => (
                       <TableRow key={it.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="text-xs">{getItemName(it.itemId)}</TableCell>
                         <TableCell className="text-xs">{it.quantityPlanned ?? "-"}</TableCell>
                         <TableCell className="text-xs">{it.quantityDispatched ?? "-"}</TableCell>

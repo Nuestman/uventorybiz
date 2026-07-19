@@ -303,6 +303,7 @@ export default function TransactionHistory() {
             <Table className="min-w-[800px]">
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Item</TableHead>
                   <TableHead>Quantity</TableHead>
@@ -318,17 +319,18 @@ export default function TransactionHistory() {
               <TableBody>
                 {transactionsLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">Loading transactions...</TableCell>
+                    <TableCell colSpan={11} className="text-center py-8">Loading transactions...</TableCell>
                   </TableRow>
                 ) : filteredTransactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={11} className="text-center py-8 text-gray-500">
                       No transactions found matching your criteria
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredTransactions.map((transaction: InventoryTransaction) => (
+                  filteredTransactions.map((transaction: InventoryTransaction, index: number) => (
                     <TableRow key={transaction.id}>
+                      <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getTransactionIcon(transaction.transactionType)}

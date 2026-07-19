@@ -202,6 +202,7 @@ export default function AuditTrail() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Action</TableHead>
                       <TableHead>Resource</TableHead>
                       <TableHead>User</TableHead>
@@ -210,8 +211,9 @@ export default function AuditTrail() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {auditLogs.map((log) => (
+                    {auditLogs.map((log, index) => (
                       <TableRow key={log.id} className="hover:bg-gray-50">
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
                             {getActionIcon(log.action)}

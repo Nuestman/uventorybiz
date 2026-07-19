@@ -16,7 +16,12 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { AMBULANCE_PRESTART_CHECKLIST_ITEMS, isValidPrestartResponses } from "./ambulancePrestartChecklist";
+import {
+  allPrestartItemsDecided,
+  hasFaultyPrestartItems,
+  isValidPrestartResponses,
+  migrateLegacyResponses,
+} from "./fleetPrestartChecklist";
 
 // Session storage table for express-session (passport compatibility)
 export const sessions = pgTable(
@@ -38,16 +43,19 @@ export const userRoleEnum = pgEnum("user_role", [
   "super_admin",
 ]);
 
-/** Fixed care sites vs mobile ambulance units (inventory location + fleet metadata). */
-export const careLocationKindEnum = pgEnum("care_location_kind", ["fixed_site", "ambulance"]);
+/** Fixed stores/sites vs mobile fleet units (inventory location + fleet metadata). */
+export const careLocationKindEnum = pgEnum("care_location_kind", ["fixed_site", "fleet"]);
 
-/** Operational status for ambulance units (fixed sites leave null). */
-export const ambulanceOpsStatusEnum = pgEnum("ambulance_ops_status", [
+/** Operational status for fleet vehicles (fixed sites leave null). */
+export const fleetOpsStatusEnum = pgEnum("fleet_ops_status", [
   "available",
   "deployed",
   "standby",
   "out_of_service",
 ]);
+
+/** @deprecated Use fleetOpsStatusEnum */
+export const ambulanceOpsStatusEnum = fleetOpsStatusEnum;
 
 /** Staff e-ticketing (operations / facilities / IT / HSE — not patient-facing). */
 export const ticketStatusEnum = pgEnum("ticket_status", [
@@ -385,7 +393,7 @@ export const careLocations = pgTable("care_locations", {
   fleetNumber: varchar("fleet_number", { length: 128 }),
   /** When not tied to a single store (e.g. mobile unit covering all sites). */
   coverageNotes: text("coverage_notes"),
-  ambulanceOpsStatus: ambulanceOpsStatusEnum("ambulance_ops_status"),
+  fleetOpsStatus: fleetOpsStatusEnum("fleet_ops_status"),
   
   // Operations (business stores)
   capacity: integer("capacity"), // Optional floor/storage capacity units
@@ -410,17 +418,20 @@ export const careLocations = pgTable("care_locations", {
 /** Alias for uventorybiz naming — DB table remains `care_locations`. */
 export const storeLocations = careLocations;
 
-/** Shift pre-start safety checklist submission per ambulance (inventory location). */
-export const ambulancePrestartStatusEnum = pgEnum("ambulance_prestart_status", ["draft", "completed"]);
+/** Shift pre-start checklist submission per fleet vehicle (inventory location). */
+export const fleetPrestartStatusEnum = pgEnum("fleet_prestart_status", ["draft", "completed"]);
 
-export const ambulancePrestartChecks = pgTable(
-  "ambulance_prestart_checks",
+/** @deprecated Use fleetPrestartStatusEnum */
+export const ambulancePrestartStatusEnum = fleetPrestartStatusEnum;
+
+export const fleetPrestartChecks = pgTable(
+  "fleet_prestart_checks",
   {
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
     tenantId: varchar("tenant_id")
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
-    ambulanceLocationId: varchar("ambulance_location_id")
+    fleetLocationId: varchar("fleet_location_id")
       .notNull()
       .references(() => careLocations.id, { onDelete: "cascade" }),
     completedByUserId: varchar("completed_by_user_id")
@@ -428,7 +439,7 @@ export const ambulancePrestartChecks = pgTable(
       .references(() => users.id),
     shiftDate: date("shift_date").notNull(),
     checkedAt: timestamp("checked_at").defaultNow(),
-    status: ambulancePrestartStatusEnum("status").notNull().default("draft"),
+    status: fleetPrestartStatusEnum("status").notNull().default("draft"),
     responses: jsonb("responses").notNull().default(sql`'{}'::jsonb`),
     deficienciesNotes: text("deficiencies_notes"),
     mileageReading: varchar("mileage_reading", { length: 32 }),
@@ -436,10 +447,13 @@ export const ambulancePrestartChecks = pgTable(
     updatedAt: timestamp("updated_at").defaultNow(),
   },
   (t) => ({
-    tenantAmbulanceIdx: index("ambulance_prestart_tenant_ambulance_idx").on(t.tenantId, t.ambulanceLocationId),
-    tenantShiftIdx: index("ambulance_prestart_tenant_shift_idx").on(t.tenantId, t.shiftDate),
+    tenantFleetIdx: index("fleet_prestart_tenant_fleet_idx").on(t.tenantId, t.fleetLocationId),
+    tenantShiftIdx: index("fleet_prestart_tenant_shift_idx").on(t.tenantId, t.shiftDate),
   })
 );
+
+/** @deprecated Use fleetPrestartChecks */
+export const ambulancePrestartChecks = fleetPrestartChecks;
 
 // Referral/transfer facilities (hospitals) - tenant-specific list for "transferred to hospital" disposition
 export const referralFacilities = pgTable("referral_facilities", {
@@ -505,16 +519,98 @@ export const tenantSecuritySettings = pgTable("tenant_security_settings", {
   tenantId: varchar("tenant_id")
     .primaryKey()
     .references(() => tenants.id, { onDelete: "cascade" }),
-  staffSessionAbsoluteHours: integer("staff_session_absolute_hours").notNull().default(12),
+  staffSessionAbsoluteHours: integer("staff_session_absolute_hours").notNull().default(24),
   staffSessionIdleMinutes: integer("staff_session_idle_minutes").notNull().default(30),
   portalSessionAbsoluteDays: integer("portal_session_absolute_days").notNull().default(14),
   portalSessionIdleMinutes: integer("portal_session_idle_minutes").notNull().default(60),
   portalSessionSlidingDays: integer("portal_session_sliding_days").notNull().default(7),
   sessionWarningLeadMinutes: integer("session_warning_lead_minutes").notNull().default(3),
+  idleTimeoutEnabled: boolean("idle_timeout_enabled").notNull().default(true),
   requireMfa: boolean("require_mfa").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+/** Asset type for the business assets register (fixed assets, not sellable catalog). */
+export const businessAssetTypeEnum = pgEnum("business_asset_type", [
+  "equipment",
+  "vehicle",
+  "it",
+  "tool",
+  "other",
+]);
+
+export const businessAssetStatusEnum = pgEnum("business_asset_status", [
+  "functional",
+  "faulty",
+  "maintenance",
+  "decommissioned",
+  "lost",
+  "sold",
+]);
+
+/** How a vehicle is used: staff commute vs mobile store (inventory extension). */
+export const vehicleKindEnum = pgEnum("vehicle_kind", ["commute", "mobile_store"]);
+
+/** Per-tenant counter for AST-###### tags. */
+export const tenantAssetTagCounters = pgTable("tenant_asset_tag_counters", {
+  tenantId: varchar("tenant_id")
+    .primaryKey()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+  nextValue: integer("next_value").notNull().default(1),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
+ * Fixed assets owned/operated by a tenant (equipment, vehicles/fleet, IT, tools).
+ * Vehicles link 1:1 to a care_locations stock site via stock_location_id.
+ */
+export const businessAssets = pgTable(
+  "business_assets",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    assetTag: varchar("asset_tag", { length: 32 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description"),
+    assetType: businessAssetTypeEnum("asset_type").notNull(),
+    status: businessAssetStatusEnum("status").notNull().default("functional"),
+    serialNumber: varchar("serial_number", { length: 128 }),
+    brand: varchar("brand", { length: 128 }),
+    model: varchar("model", { length: 128 }),
+    callSign: varchar("call_sign", { length: 128 }),
+    registrationPlate: varchar("registration_plate", { length: 64 }),
+    fleetNumber: varchar("fleet_number", { length: 128 }),
+    opsStatus: fleetOpsStatusEnum("ops_status"),
+    /** commute = transport; mobile_store = holds sellable/on-board stock as a shop extension. */
+    vehicleKind: vehicleKindEnum("vehicle_kind"),
+    /** Vehicle on-board stock site (location_kind=fleet). Required for vehicles. */
+    stockLocationId: varchar("stock_location_id").references(() => careLocations.id, {
+      onDelete: "set null",
+    }),
+    /** Where a non-vehicle asset is stationed (store or vehicle stock site). */
+    assignedLocationId: varchar("assigned_location_id").references(() => careLocations.id, {
+      onDelete: "set null",
+    }),
+    purchaseDate: date("purchase_date"),
+    warrantyExpiry: date("warranty_expiry"),
+    lastMaintenanceDate: date("last_maintenance_date"),
+    nextMaintenanceDate: date("next_maintenance_date"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    tenantTagUnique: unique("business_assets_tenant_tag_unique").on(t.tenantId, t.assetTag),
+    tenantTypeIdx: index("idx_business_assets_tenant_type").on(t.tenantId, t.assetType),
+    stockLocIdx: index("idx_business_assets_stock_location").on(t.stockLocationId),
+    stockLocUnique: unique("business_assets_stock_location_unique").on(t.stockLocationId),
+    assignedLocIdx: index("idx_business_assets_assigned_location").on(t.assignedLocationId),
+    statusIdx: index("idx_business_assets_tenant_status").on(t.tenantId, t.status),
+  }),
+);
 
 /** Short-lived tokens for MFA login step or enrollment. */
 export const mfaChallenges = pgTable(
@@ -1542,27 +1638,37 @@ export const tickets = pgTable(
     descriptionHtml: text("description_html").notNull().default(""),
     status: ticketStatusEnum("status").notNull().default("open"),
     priority: ticketPriorityEnum("priority").notNull().default("normal"),
-    requesterUserId: varchar("requester_user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    /** Origin of the ticket: staff app vs customer/supplier portal. */
+    source: varchar("source", { length: 16 }).notNull().default("staff"),
+    /** Staff requester (null when source=portal). */
+    requesterUserId: varchar("requester_user_id").references(() => users.id, { onDelete: "cascade" }),
+    /** Portal requester (null when source=staff). */
+    requesterPortalUserId: varchar("requester_portal_user_id").references(() => portalUsers.id, {
+      onDelete: "cascade",
+    }),
     assigneeUserId: varchar("assignee_user_id").references(() => users.id, { onDelete: "set null" }),
     locationId: varchar("location_id").references(() => careLocations.id, { onDelete: "set null" }),
     relatedIncidentId: varchar("related_incident_id").references(() => incidentReports.id, {
       onDelete: "set null",
     }),
+    /** Canonical link to business assets register; prefer over free-text assetTag. */
+    assetId: varchar("asset_id").references(() => businessAssets.id, { onDelete: "set null" }),
     assetTag: varchar("asset_tag", { length: 255 }),
     resolvedAt: timestamp("resolved_at"),
     closedAt: timestamp("closed_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
-    createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: "restrict" }),
+    /** Staff creator; null for portal-originated tickets. */
+    createdBy: varchar("created_by").references(() => users.id, { onDelete: "restrict" }),
     updatedBy: varchar("updated_by").references(() => users.id, { onDelete: "set null" }),
   },
   (table) => [
     unique("tickets_tenant_ticket_number_unique").on(table.tenantId, table.ticketNumber),
     index("idx_tickets_tenant_status_updated").on(table.tenantId, table.status, table.updatedAt),
     index("idx_tickets_tenant_requester").on(table.tenantId, table.requesterUserId),
+    index("idx_tickets_tenant_portal_requester").on(table.tenantId, table.requesterPortalUserId),
     index("idx_tickets_tenant_assignee").on(table.tenantId, table.assigneeUserId),
+    index("idx_tickets_tenant_asset").on(table.tenantId, table.assetId),
   ]
 );
 
@@ -1572,7 +1678,12 @@ export const ticketComments = pgTable(
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
     tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     ticketId: varchar("ticket_id").notNull().references(() => tickets.id, { onDelete: "cascade" }),
-    authorUserId: varchar("author_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    /** Staff author; null when written by a portal user. */
+    authorUserId: varchar("author_user_id").references(() => users.id, { onDelete: "cascade" }),
+    /** Portal author; null when written by staff. */
+    authorPortalUserId: varchar("author_portal_user_id").references(() => portalUsers.id, {
+      onDelete: "cascade",
+    }),
     bodyHtml: text("body_html").notNull().default(""),
     isInternal: boolean("is_internal").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -1590,9 +1701,12 @@ export const ticketAttachments = pgTable(
     originalName: varchar("original_name").notNull(),
     mimeType: varchar("mime_type"),
     sizeBytes: integer("size_bytes"),
-    uploadedByUserId: varchar("uploaded_by_user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    /** Staff uploader; null when uploaded by a portal user. */
+    uploadedByUserId: varchar("uploaded_by_user_id").references(() => users.id, { onDelete: "cascade" }),
+    /** Portal uploader; null when uploaded by staff. */
+    uploadedByPortalUserId: varchar("uploaded_by_portal_user_id").references(() => portalUsers.id, {
+      onDelete: "cascade",
+    }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [index("idx_ticket_attachments_ticket").on(table.ticketId)]
@@ -1604,7 +1718,12 @@ export const ticketActivity = pgTable(
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
     tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     ticketId: varchar("ticket_id").notNull().references(() => tickets.id, { onDelete: "cascade" }),
-    actorUserId: varchar("actor_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    /** Staff actor; null when action originated from a portal user. */
+    actorUserId: varchar("actor_user_id").references(() => users.id, { onDelete: "cascade" }),
+    /** Portal actor; null when action originated from staff. */
+    actorPortalUserId: varchar("actor_portal_user_id").references(() => portalUsers.id, {
+      onDelete: "cascade",
+    }),
     action: varchar("action", { length: 64 }).notNull(),
     metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -2681,24 +2800,27 @@ export const careLocationsRelations = relations(careLocations, ({ one, many }) =
   drugTests: many(drugTests),
   alcoholTests: many(alcoholTests),
   hydrationTests: many(hydrationTests),
-  dutyAssignments: many(operationalDutyAssignments),
-  ambulancePrestartChecks: many(ambulancePrestartChecks),
+  fleetAssignments: many(operationalDutyAssignments),
+  fleetPrestartChecks: many(fleetPrestartChecks),
 }));
 
-export const ambulancePrestartChecksRelations = relations(ambulancePrestartChecks, ({ one }) => ({
+export const fleetPrestartChecksRelations = relations(fleetPrestartChecks, ({ one }) => ({
   tenant: one(tenants, {
-    fields: [ambulancePrestartChecks.tenantId],
+    fields: [fleetPrestartChecks.tenantId],
     references: [tenants.id],
   }),
-  ambulanceLocation: one(careLocations, {
-    fields: [ambulancePrestartChecks.ambulanceLocationId],
+  fleetLocation: one(careLocations, {
+    fields: [fleetPrestartChecks.fleetLocationId],
     references: [careLocations.id],
   }),
   completedByUser: one(users, {
-    fields: [ambulancePrestartChecks.completedByUserId],
+    fields: [fleetPrestartChecks.completedByUserId],
     references: [users.id],
   }),
 }));
+
+/** @deprecated Use fleetPrestartChecksRelations */
+export const ambulancePrestartChecksRelations = fleetPrestartChecksRelations;
 
 // Referral facilities relations
 export const referralFacilitiesRelations = relations(referralFacilities, ({ one }) => ({
@@ -3200,64 +3322,157 @@ export const insertCareLocationSchema = createInsertSchema(careLocations).omit({
   updatedAt: true,
 });
 
-/** API body for POST /api/ambulances — creates a care_locations row with location_kind = ambulance. */
-export const createAmbulanceSchema = z.object({
+/** API body for POST /api/fleet — creates a care_locations row with location_kind = fleet. */
+export const createFleetUnitSchema = z.object({
   locationName: z.string().min(1).max(200),
   locationCode: z.string().min(1).max(64),
   description: z.string().max(2000).optional().nullable(),
-  /** Fixed post/clinic id; omit or null when the unit covers multiple posts (use coverageNotes). */
+  /** Fixed store/site id; omit or null when the unit covers multiple sites (use coverageNotes). */
   stationedAtLocationId: z.string().min(1).max(128).optional().nullable(),
   callSign: z.string().max(128).optional().nullable(),
   registrationPlate: z.string().max(32).optional().nullable(),
   fleetNumber: z.string().max(128).optional().nullable(),
   coverageNotes: z.string().max(4000).optional().nullable(),
-  ambulanceOpsStatus: z.enum(["available", "deployed", "standby", "out_of_service"]).optional(),
+  fleetOpsStatus: z.enum(["available", "deployed", "standby", "out_of_service"]).optional(),
   status: z.enum(["active", "inactive", "maintenance"]).optional(),
+  vehicleKind: z.enum(["commute", "mobile_store"]).optional(),
 });
 
-export const updateAmbulanceSchema = createAmbulanceSchema.partial();
+export const updateFleetUnitSchema = createFleetUnitSchema.partial();
 
-export type CreateAmbulanceInput = z.infer<typeof createAmbulanceSchema>;
-export type UpdateAmbulanceInput = z.infer<typeof updateAmbulanceSchema>;
+export type CreateFleetUnitInput = z.infer<typeof createFleetUnitSchema>;
+export type UpdateFleetUnitInput = z.infer<typeof updateFleetUnitSchema>;
 
-export const createAmbulancePrestartSchema = z
-  .object({
-    ambulanceLocationId: z.string().min(1),
+/** @deprecated Use createFleetUnitSchema */
+export const createAmbulanceSchema = createFleetUnitSchema;
+/** @deprecated Use updateFleetUnitSchema */
+export const updateAmbulanceSchema = updateFleetUnitSchema;
+/** @deprecated Use CreateFleetUnitInput */
+export type CreateAmbulanceInput = CreateFleetUnitInput;
+/** @deprecated Use UpdateFleetUnitInput */
+export type UpdateAmbulanceInput = UpdateFleetUnitInput;
+
+export const BUSINESS_ASSET_TYPES = ["equipment", "vehicle", "it", "tool", "other"] as const;
+export const BUSINESS_ASSET_STATUSES = [
+  "functional",
+  "faulty",
+  "maintenance",
+  "decommissioned",
+  "lost",
+  "sold",
+] as const;
+export const VEHICLE_KINDS = ["commute", "mobile_store"] as const;
+
+const createBusinessAssetBaseSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  description: z.string().max(8000).optional().nullable(),
+  assetType: z.enum(BUSINESS_ASSET_TYPES),
+  status: z.enum(BUSINESS_ASSET_STATUSES).optional(),
+  serialNumber: z.string().max(128).optional().nullable(),
+  brand: z.string().max(128).optional().nullable(),
+  model: z.string().max(128).optional().nullable(),
+  callSign: z.string().max(128).optional().nullable(),
+  registrationPlate: z.string().max(64).optional().nullable(),
+  fleetNumber: z.string().max(128).optional().nullable(),
+  opsStatus: z.enum(["available", "deployed", "standby", "out_of_service"]).optional().nullable(),
+  vehicleKind: z.enum(VEHICLE_KINDS).optional().nullable(),
+  assignedLocationId: z.string().min(1).max(128).optional().nullable(),
+  stationedAtLocationId: z.string().min(1).max(128).optional().nullable(),
+  locationCode: z.string().min(1).max(64).optional().nullable(),
+  purchaseDate: z.string().optional().nullable(),
+  warrantyExpiry: z.string().optional().nullable(),
+  lastMaintenanceDate: z.string().optional().nullable(),
+  nextMaintenanceDate: z.string().optional().nullable(),
+  notes: z.string().max(8000).optional().nullable(),
+});
+
+export const createBusinessAssetSchema = createBusinessAssetBaseSchema;
+
+export const updateBusinessAssetSchema = createBusinessAssetBaseSchema.partial();
+
+export type CreateBusinessAssetInput = z.infer<typeof createBusinessAssetSchema>;
+export type UpdateBusinessAssetInput = z.infer<typeof updateBusinessAssetSchema>;
+export type BusinessAsset = typeof businessAssets.$inferSelect;
+
+const prestartResponseValueSchema = z.union([
+  z.enum(["unchecked", "pass", "faulty"]),
+  z.boolean(), // legacy payloads; migrated in storage
+]);
+
+const fleetOpsStatusSchema = z.enum(["available", "deployed", "standby", "out_of_service"]);
+
+function completedPrestartRefines<
+  T extends {
+    status?: "draft" | "completed";
+    responses?: Record<string, unknown>;
+    deficienciesNotes?: string | null;
+  },
+>(schema: z.ZodType<T>) {
+  return schema
+    .refine(
+      (data) => {
+        if (data.status !== "completed" || data.responses == null) return true;
+        return allPrestartItemsDecided(migrateLegacyResponses(data.responses));
+      },
+      {
+        message: "Every checklist item must be marked Pass or Faulty before completing",
+        path: ["responses"],
+      }
+    )
+    .refine(
+      (data) => {
+        if (data.status !== "completed" || data.responses == null) return true;
+        const migrated = migrateLegacyResponses(data.responses);
+        if (!hasFaultyPrestartItems(migrated)) return true;
+        return Boolean(data.deficienciesNotes?.trim());
+      },
+      {
+        message: "Deficiencies / notes are required when any item is Faulty",
+        path: ["deficienciesNotes"],
+      }
+    );
+}
+
+export const createFleetPrestartSchema = completedPrestartRefines(
+  z.object({
+    fleetLocationId: z.string().min(1),
     shiftDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    responses: z.record(z.boolean()),
+    responses: z.record(prestartResponseValueSchema),
     deficienciesNotes: z.string().max(5000).optional().nullable(),
     mileageReading: z.string().max(32).optional().nullable(),
     status: z.enum(["draft", "completed"]).optional(),
+    opsStatus: fleetOpsStatusSchema.optional(),
   })
-  .refine((data) => isValidPrestartResponses(data.responses), {
-    message: "Unknown checklist item key in responses",
-    path: ["responses"],
-  })
-  .refine(
-    (data) =>
-      data.status !== "completed" ||
-      AMBULANCE_PRESTART_CHECKLIST_ITEMS.every((item) => data.responses[item.key] === true),
-    {
-      message: "All checklist items must pass before marking the form completed",
-      path: ["status"],
-    }
-  );
+).refine((data) => isValidPrestartResponses(data.responses), {
+  message: "Unknown checklist item key in responses",
+  path: ["responses"],
+});
 
-export const updateAmbulancePrestartSchema = z
-  .object({
+export const updateFleetPrestartSchema = completedPrestartRefines(
+  z.object({
     shiftDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    responses: z.record(z.boolean()).optional(),
+    responses: z.record(prestartResponseValueSchema).optional(),
     deficienciesNotes: z.string().max(5000).optional().nullable(),
     mileageReading: z.string().max(32).optional().nullable(),
     status: z.enum(["draft", "completed"]).optional(),
+    opsStatus: fleetOpsStatusSchema.optional(),
   })
-  .refine((data) => data.responses == null || isValidPrestartResponses(data.responses), {
-    message: "Unknown checklist item key in responses",
-    path: ["responses"],
-  });
+).refine((data) => data.responses == null || isValidPrestartResponses(data.responses), {
+  message: "Unknown checklist item key in responses",
+  path: ["responses"],
+});
 
-export type CreateAmbulancePrestartInput = z.infer<typeof createAmbulancePrestartSchema>;
-export type UpdateAmbulancePrestartInput = z.infer<typeof updateAmbulancePrestartSchema>;
+export type CreateFleetPrestartInput = z.infer<typeof createFleetPrestartSchema>;
+export type UpdateFleetPrestartInput = z.infer<typeof updateFleetPrestartSchema>;
+
+/** @deprecated Use createFleetPrestartSchema */
+export const createAmbulancePrestartSchema = createFleetPrestartSchema;
+/** @deprecated Use updateFleetPrestartSchema */
+export const updateAmbulancePrestartSchema = updateFleetPrestartSchema;
+/** @deprecated Use CreateFleetPrestartInput */
+export type CreateAmbulancePrestartInput = CreateFleetPrestartInput;
+/** @deprecated Use UpdateFleetPrestartInput */
+export type UpdateAmbulancePrestartInput = UpdateFleetPrestartInput;
 
 export const insertReferralFacilitySchema = createInsertSchema(referralFacilities).omit({
   id: true,
@@ -3748,7 +3963,9 @@ export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
 export type InsertPatient = z.infer<typeof insertPatientSchema>;
 export type Patient = typeof patients.$inferSelect;
 export type CareLocation = typeof careLocations.$inferSelect;
-export type AmbulancePrestartCheck = typeof ambulancePrestartChecks.$inferSelect;
+export type FleetPrestartCheck = typeof fleetPrestartChecks.$inferSelect;
+/** @deprecated Use FleetPrestartCheck */
+export type AmbulancePrestartCheck = FleetPrestartCheck;
 export type InsertCareLocation = z.infer<typeof insertCareLocationSchema>;
 export type ReferralFacility = typeof referralFacilities.$inferSelect;
 export type InsertReferralFacility = z.infer<typeof insertReferralFacilitySchema>;

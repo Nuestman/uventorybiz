@@ -13,7 +13,7 @@ export function createCareLocationsController(storage: IStorage) {
   return {
     async list(
       tenantId: string,
-      options: { includeInactive?: boolean; status?: string; locationKind?: "fixed_site" | "ambulance" }
+      options: { includeInactive?: boolean; status?: string; locationKind?: "fixed_site" | "fleet" }
     ): Promise<CareLocationResult<CareLocation[]>> {
       try {
         const data = await storage.getCareLocations(tenantId, options);
@@ -75,7 +75,7 @@ export function createCareLocationsController(storage: IStorage) {
           registrationPlate: null,
           fleetNumber: null,
           coverageNotes: null,
-          ambulanceOpsStatus: null,
+          fleetOpsStatus: null,
         };
         if (payload.isPrimary) await storage.unsetPrimaryCareLocation(tenantId);
         const location = await storage.createCareLocation(payload, tenantId, userId);
@@ -117,7 +117,7 @@ export function createCareLocationsController(storage: IStorage) {
       try {
         const original = await storage.getCareLocation(id, tenantId);
         if (!original) return { ok: false, error: "Store location not found", code: "NOT_FOUND" };
-        if (original.locationKind === "ambulance") {
+        if (original.locationKind === "fleet") {
           return {
             ok: false,
             error: "Fleet units are updated under Operations → Fleet.",
@@ -131,7 +131,7 @@ export function createCareLocationsController(storage: IStorage) {
           registrationPlate: _r,
           fleetNumber: _f,
           coverageNotes: _cv,
-          ambulanceOpsStatus: _a,
+          fleetOpsStatus: _a,
           ...fixedSitePatch
         } = data as Record<string, unknown>;
         if (data.isPrimary && !original.isPrimary) await storage.unsetPrimaryCareLocation(tenantId);
@@ -177,7 +177,7 @@ export function createCareLocationsController(storage: IStorage) {
       try {
         const original = await storage.getCareLocation(id, tenantId);
         if (!original) return { ok: false, error: "Store location not found", code: "NOT_FOUND" };
-        if (original.locationKind === "ambulance") {
+        if (original.locationKind === "fleet") {
           return {
             ok: false,
             error: "Delete fleet units from Operations → Fleet (after zeroing on-board stock).",

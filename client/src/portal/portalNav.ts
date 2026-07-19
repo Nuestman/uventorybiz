@@ -1,8 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 
-import { CalendarDays, FileText, Home, MessageSquare, Package, Settings, ShoppingBag } from "lucide-react";
+import { CalendarDays, FileText, Home, LifeBuoy, MessageSquare, Package, Settings, ShoppingBag } from "lucide-react";
 
-import { PORTAL_DASHBOARD, PORTAL_ORDERS, PORTAL_SHOP, PORTAL_SUPPLIER_ORDERS } from "./portalRoutes";
+import { PORTAL_DASHBOARD, PORTAL_ORDERS, PORTAL_SHOP, PORTAL_SUPPORT, PORTAL_SUPPLIER_ORDERS } from "./portalRoutes";
 
 import type { PortalSessionPayload } from "./usePortalSession";
 
@@ -41,6 +41,12 @@ export function buildPortalNav(session: PortalSessionPayload | null): PortalNavI
       icon: MessageSquare,
       enabled: session.features.messaging && hasPatientBridge,
     },
+    {
+      href: PORTAL_SUPPORT,
+      label: "Support",
+      icon: LifeBuoy,
+      enabled: session.features.tickets !== false,
+    },
     { href: "/portal/profile", label: "Settings", icon: Settings, enabled: true },
   ];
 
@@ -52,6 +58,10 @@ export function isPortalNavActive(loc: string, href: string): boolean {
 
   if (href === "/portal/appointments") {
     return loc.startsWith("/portal/appointments");
+  }
+
+  if (href === PORTAL_SUPPORT) {
+    return loc.startsWith("/portal/support");
   }
 
   return loc === href || loc.startsWith(`${href}/`);
@@ -71,6 +81,8 @@ export function getPortalPageTitle(loc: string): string {
   if (loc.startsWith("/portal/appointments")) return "Appointments";
 
   if (loc.startsWith("/portal/messages")) return "Messages";
+
+  if (loc.startsWith("/portal/support")) return "Support";
 
   return "Customer & supplier portal";
 }

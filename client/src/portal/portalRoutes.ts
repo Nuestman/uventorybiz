@@ -8,6 +8,8 @@ export const PORTAL_PROFILE = "/portal/profile";
 export const PORTAL_SHOP = "/portal/shop";
 export const PORTAL_ORDERS = "/portal/orders";
 export const PORTAL_SUPPLIER_ORDERS = "/portal/purchase-orders";
+export const PORTAL_SUPPORT = "/portal/support";
+export const PORTAL_SUPPORT_NEW = "/portal/support/new";
 
 export function portalSignInUrl(params?: { org?: string; error?: string }): string {
   const q = new URLSearchParams();

@@ -113,6 +113,76 @@
       "when": 1784415000000,
       "tag": "0015_uventorybiz_inventory_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1784500000000,
+      "tag": "0016_portal_support_tickets",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784501000000,
+      "tag": "0017_staff_session_absolute_24h",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784502000000,
+      "tag": "0018_idle_timeout_enabled",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1784503000000,
+      "tag": "0019_fleet_rename",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1784504000000,
+      "tag": "0020_business_assets",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1784505000000,
+      "tag": "0021_fix_asset_tag_counters",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1784506000000,
+      "tag": "0022_business_asset_status_equipment",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1784507000000,
+      "tag": "0023_business_asset_status_sold",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1784508000000,
+      "tag": "0024_vehicle_kind_and_stationed",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1784590000000,
+      "tag": "0025_portal_ticket_attachments",
+      "breakpoints": true
     }
   ]
 }

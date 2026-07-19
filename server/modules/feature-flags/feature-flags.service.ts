@@ -24,8 +24,9 @@ export const PLATFORM_FEATURES = {
   },
   fleet: {
     key: "fleet",
-    displayName: "Fleet",
-    description: "Fleet / vehicle register, pre-start checks, and on-board inventory.",
+    displayName: "Business Assets",
+    description:
+      "Business assets register — equipment, vehicles/fleet, IT and tools with auto tags; linked vehicle stock locations.",
     defaultEnabled: true,
   },
   wellbeing: {
@@ -49,8 +50,16 @@ export const PLATFORM_FEATURES = {
   tickets: {
     key: "tickets",
     displayName: "Staff Tickets",
-    description: "Site issues, repairs, and staff request tickets.",
+    description:
+      "Site issues, repairs, staff request tickets, and portal system-issue reports from customers/suppliers.",
     defaultEnabled: true,
+  },
+  messaging: {
+    key: "messaging",
+    displayName: "Secure Messaging",
+    description:
+      "Staff and portal secure messaging — inbox, threads, SSE realtime stream, and unread badges. Off by default to avoid idle stream/poll load.",
+    defaultEnabled: false,
   },
   portal: {
     key: "portal",
@@ -95,9 +104,11 @@ export async function getFeatureFlags(): Promise<Record<string, boolean>> {
     return flags;
   } catch (err) {
     // Fail open to code defaults so a transient DB issue never bricks the API surface.
+    // Cache defaults briefly so a cold/unreachable Neon does not stampede reconnect timeouts.
     console.error("Feature flags: failed to load from DB, using defaults:", err);
     const defaults: Record<string, boolean> = {};
     for (const def of Object.values(PLATFORM_FEATURES)) defaults[def.key] = def.defaultEnabled;
+    cache = { flags: defaults, loadedAt: Date.now() };
     return defaults;
   }
 }

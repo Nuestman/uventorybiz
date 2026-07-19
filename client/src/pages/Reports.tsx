@@ -1019,6 +1019,7 @@ export default function Reports() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Shift</TableHead>
                   <TableHead>Location</TableHead>
@@ -1029,8 +1030,9 @@ export default function Reports() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(reports as ShiftReportRow[]).map((r) => (
+                {(reports as ShiftReportRow[]).map((r, index) => (
                   <TableRow key={r.id}>
+                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                     <TableCell>{format(new Date(r.reportDate), "yyyy-MM-dd")}</TableCell>
                     <TableCell className="capitalize">{r.shift}</TableCell>
                     <TableCell>{r.locationName ?? "—"}</TableCell>

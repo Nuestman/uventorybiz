@@ -30,10 +30,10 @@ export function createCareLocationsRouter(deps: CareLocationsRoutesDeps): Router
     const includeInactive = req.query.includeInactive === "true";
     const status = req.query.status as string | undefined;
     const rawKind = req.query.locationKind as string | undefined;
-    let locationKind: "fixed_site" | "ambulance" | undefined;
-    if (rawKind === "fixed_site" || rawKind === "ambulance") locationKind = rawKind;
+    let locationKind: "fixed_site" | "fleet" | undefined;
+    if (rawKind === "fixed_site" || rawKind === "fleet") locationKind = rawKind;
     else if (rawKind != null && rawKind !== "")
-      return sendError(res, 400, "Invalid locationKind (use fixed_site or ambulance)");
+      return sendError(res, 400, "Invalid locationKind (use fixed_site or fleet)");
     const result = await controller.list(tenantId, { includeInactive, status, locationKind });
     if (!result.ok) return sendError(res, 500, result.error);
     res.json(result.data);

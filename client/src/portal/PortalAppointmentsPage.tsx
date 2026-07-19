@@ -432,6 +432,7 @@ function AppointmentListView({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">#</TableHead>
               <TableHead>When</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Modality</TableHead>
@@ -442,8 +443,9 @@ function AppointmentListView({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {appointments.map((a) => (
+            {appointments.map((a, index) => (
               <TableRow key={a.id}>
+                <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                 <TableCell className="whitespace-nowrap">{formatDateTime(a.appointmentDate)}</TableCell>
                 <TableCell>{formatAppointmentType(a.appointmentType)}</TableCell>
                 <TableCell>{modalityLabel(a.modality)}</TableCell>
@@ -540,6 +542,7 @@ function RequestsListView({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">#</TableHead>
               <TableHead>Preferred time</TableHead>
               <TableHead>Modality</TableHead>
               <TableHead>Reason</TableHead>
@@ -549,8 +552,9 @@ function RequestsListView({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {requests.map((r) => (
+            {requests.map((r, index) => (
               <TableRow key={r.id}>
+                <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                 <TableCell className="whitespace-nowrap">{formatPreferredWhen(r)}</TableCell>
                 <TableCell>{modalityLabel(r.preferredModality)}</TableCell>
                 <TableCell className="max-w-[200px] truncate" title={r.reason ?? undefined}>

@@ -94,6 +94,7 @@ export default function SuperAdminSignedLegal() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">#</TableHead>
                 <TableHead>Organisation</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>File</TableHead>
@@ -103,8 +104,9 @@ export default function SuperAdminSignedLegal() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {docs.map((row) => (
+              {docs.map((row, index) => (
                 <TableRow key={row.id}>
+                  <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                   <TableCell className="font-medium whitespace-nowrap">{row.tenantName}</TableCell>
                   <TableCell>{DOCUMENT_TYPES[row.documentType] ?? row.documentType}</TableCell>
                   <TableCell className="max-w-[180px] truncate" title={row.originalFilename}>

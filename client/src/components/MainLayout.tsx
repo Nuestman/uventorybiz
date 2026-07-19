@@ -80,6 +80,11 @@ function isPathActive(path: string, currentLocation: string): boolean {
     const loc = currentLocation.split("?")[0].replace(/\/$/, "") || "/";
     return loc === "/shiftover";
   }
+  // Assets overview vs fleet children must not share prefix highlighting
+  if (path === "/assets" || path === "/assets/fleet") {
+    const loc = currentLocation.split("?")[0].replace(/\/$/, "") || "/";
+    return loc === path;
+  }
   if (path !== "/" && path !== "/dashboard" && currentLocation.startsWith(path)) return true;
   return false;
 }
@@ -305,13 +310,18 @@ function AppSidebar() {
   });
   const notificationsUnreadCount = unreadData?.count ?? 0;
 
+  const { flags: featureFlags, isLoading: flagsLoading } = useFeatureFlags();
+  const isFeatureOn = (key?: string) => {
+    if (!key) return true;
+    if (flagsLoading) return false;
+    if (key === "messaging") return featureFlags[key] ?? false;
+    return featureFlags[key] ?? true;
+  };
+
   const { data: messagingUnreadData } = useMessagingUnreadCount(
     "staff",
-    !!authUser && hasStaffAccess(authUser.role),
+    !!authUser && hasStaffAccess(authUser.role) && isFeatureOn("messaging"),
   );
-  const { flags: featureFlags, isLoading: flagsLoading } = useFeatureFlags();
-  const isFeatureOn = (key?: string) =>
-    !key || (flagsLoading ? false : featureFlags[key] ?? true);
   // Per-business feature toggles from tenant settings (e.g. POC lab testing).
   // POC also requires an eligible business category (pharmacy / laboratory).
   const isTenantFeatureOn = (key?: string) => {
@@ -672,7 +682,12 @@ function TopBar() {
 
 export default function MainLayout({ children }: MainLayoutProps) {
   const { isAuthenticated, logout, user } = useAuth();
-  const staffMessagingEnabled = !!user && hasStaffAccess(user.role);
+  const { flags: featureFlags, isLoading: flagsLoading } = useFeatureFlags();
+  const staffMessagingEnabled =
+    !!user &&
+    hasStaffAccess(user.role) &&
+    !flagsLoading &&
+    (featureFlags.messaging ?? false);
 
   const isEmbedChromeless =
     typeof window !== "undefined" &&

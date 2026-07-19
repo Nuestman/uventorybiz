@@ -5,7 +5,8 @@ import { createAuthRouter } from "../modules/auth/auth.routes";
 import { createAppointmentsRouter } from "../modules/appointments/appointments.routes";
 import { createCompaniesRouter } from "../modules/companies/companies.routes";
 import { createCareLocationsRouter } from "../modules/care-locations/care-locations.routes";
-import { createAmbulancesRouter } from "../modules/ambulances/ambulances.routes";
+import { createFleetRouter } from "../modules/fleet/fleet.routes";
+import { createBusinessAssetsRouter } from "../modules/business-assets/business-assets.routes";
 import { createReferralFacilitiesRouter } from "../modules/referral-facilities/referral-facilities.routes";
 import { createEmployeesRouter } from "../modules/employees/employees.routes";
 import { createDashboardRouter } from "../modules/dashboard/dashboard.routes";
@@ -115,13 +116,16 @@ export function registerAllRoutes(app: Express, deps: RouteRegistrationDeps): vo
 
   app.use("/api/portal", requireFeature("portal"));
   app.use("/api/orders", requireFeature("portal"));
-  app.use("/api/ambulances", requireFeature("fleet"));
+  app.use("/api/fleet", requireFeature("fleet"));
+  app.use("/api/fleet-prestart-checks", requireFeature("fleet"));
   app.use("/api/wellbeing", requireFeature("wellbeing"));
   app.use("/api/incident-reports", requireFeature("incidents"));
   app.use("/api/incident-uploads", requireFeature("incidents"));
   app.use("/api/shift-reports", requireFeature("shiftover"));
   app.use("/api/shiftover", requireFeature("shiftover"));
   app.use("/api/tickets", requireFeature("tickets"));
+  app.use("/api/messaging", requireFeature("messaging"));
+  app.use("/api/portal/messaging", requireFeature("messaging"));
 
   app.use("/api", createPortalRouter({ storage, authService, portalAvatarUpload, messagingUpload }));
   app.use(
@@ -150,8 +154,9 @@ export function registerAllRoutes(app: Express, deps: RouteRegistrationDeps): vo
   app.use("/api", createCareLocationsRouter({ authMiddleware, requireAdmin }));
   app.use(
     "/api",
-    createAmbulancesRouter({ authMiddleware, requireAdmin, requireAmbulanceModuleAccess })
+    createFleetRouter({ authMiddleware, requireAdmin, requireFleetModuleAccess: requireAmbulanceModuleAccess })
   );
+  app.use("/api", createBusinessAssetsRouter({ authMiddleware }));
   app.use("/api", createReferralFacilitiesRouter({ authMiddleware, requireAdmin, requireClinicalAccess }));
   app.use("/api", createEmployeesRouter({ authMiddleware, csvUpload }));
   app.use("/api", createDashboardRouter({ authMiddleware }));

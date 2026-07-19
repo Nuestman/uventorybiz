@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { AssetTagSelect } from "@/components/assets/AssetTagSelect";
 import {
   Select,
   SelectContent,
@@ -60,10 +61,14 @@ type DetailResponse = {
     priority: string;
     categoryId: string;
     categoryName: string;
-    requesterUserId: string;
+    source?: string;
+    requesterUserId: string | null;
+    requesterPortalUserId?: string | null;
+    requesterPortalEmail?: string | null;
     assigneeUserId: string | null;
     locationId: string | null;
     relatedIncidentId: string | null;
+    assetId: string | null;
     assetTag: string | null;
     createdAt: string;
     updatedAt: string;
@@ -75,7 +80,8 @@ type DetailResponse = {
     bodyHtml: string;
     isInternal: boolean;
     createdAt: string;
-    authorUserId: string;
+    authorUserId: string | null;
+    authorPortalUserId?: string | null;
     authorName?: string;
   }>;
   attachments: Array<{
@@ -114,7 +120,7 @@ export default function TicketDetailPage() {
   const [adminDesc, setAdminDesc] = useState("");
   const [adminLocationId, setAdminLocationId] = useState<string>("__none__");
   const [adminIncidentId, setAdminIncidentId] = useState<string>("__none__");
-  const [adminAssetTag, setAdminAssetTag] = useState("");
+  const [adminAssetId, setAdminAssetId] = useState<string | null>(null);
 
   const detailQueryKey = ["/api/tickets", id] as const;
 
@@ -182,8 +188,8 @@ export default function TicketDetailPage() {
     setAdminDesc(t.descriptionHtml ?? "");
     setAdminLocationId(t.locationId ?? "__none__");
     setAdminIncidentId(t.relatedIncidentId ?? "__none__");
-    setAdminAssetTag(t.assetTag ?? "");
-  }, [t?.id, t?.updatedAt, t?.title, t?.descriptionHtml, t?.locationId, t?.relatedIncidentId, t?.assetTag]);
+    setAdminAssetId(t.assetId ?? null);
+  }, [t?.id, t?.updatedAt, t?.title, t?.descriptionHtml, t?.locationId, t?.relatedIncidentId, t?.assetId]);
 
   useEffect(() => {
     if (t && (t.status === "closed" || t.status === "cancelled")) {
@@ -211,7 +217,7 @@ export default function TicketDetailPage() {
     setAdminDesc(t.descriptionHtml ?? "");
     setAdminLocationId(t.locationId ?? "__none__");
     setAdminIncidentId(t.relatedIncidentId ?? "__none__");
-    setAdminAssetTag(t.assetTag ?? "");
+    setAdminAssetId(t.assetId ?? null);
   };
 
   const saveRequesterContent = () => {
@@ -222,9 +228,9 @@ export default function TicketDetailPage() {
         descriptionHtml: adminDesc,
         locationId: adminLocationId === "__none__" ? null : adminLocationId,
         relatedIncidentId: adminIncidentId === "__none__" ? null : adminIncidentId,
-        assetTag: adminAssetTag.trim() || null,
+        assetId: adminAssetId,
       },
-      { onSuccess: () => setContentEditOpen(false) }
+      { onSuccess: () => setContentEditOpen(false) },
     );
   };
 
@@ -335,8 +341,22 @@ export default function TicketDetailPage() {
                   <Badge variant="outline">{titleCaseUi(t.priority)}</Badge>
                 </div>
                 <p className="text-uventorybiz-gray mt-2 text-sm">
-                  {t.categoryName} · Requested By {t.requesterName ?? t.requesterUserId}
+                  {t.categoryName}
+                  {t.source === "portal" ? " · Portal" : ""} · Requested By{" "}
+                  {t.requesterName ?? t.requesterUserId ?? "Portal user"}
                   {t.assigneeName ? ` · Assigned To ${t.assigneeName}` : ""}
+                  {t.assetTag ? (
+                    <>
+                      {" · Asset "}
+                      {t.assetId ? (
+                        <Link href={`/assets?edit=${encodeURIComponent(t.assetId)}`} className="underline">
+                          {t.assetTag}
+                        </Link>
+                      ) : (
+                        t.assetTag
+                      )}
+                    </>
+                  ) : null}
                 </p>
                 <p className="text-xs text-uventorybiz-gray mt-1">
                   Updated {format(new Date(t.updatedAt), "PPpp")}
@@ -531,12 +551,8 @@ export default function TicketDetailPage() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Asset Tag / Equipment Ref</Label>
-                      <Input
-                        value={adminAssetTag}
-                        onChange={(e) => setAdminAssetTag(e.target.value)}
-                        className="bg-white"
-                      />
+                      <Label>Asset</Label>
+                      <AssetTagSelect value={adminAssetId} onChange={setAdminAssetId} />
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button

@@ -279,6 +279,7 @@ export default function Dashboard() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-12">#</TableHead>
                           <TableHead>Duty</TableHead>
                           <TableHead>Priority</TableHead>
                           <TableHead>Shift</TableHead>
@@ -287,8 +288,9 @@ export default function Dashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {todayDutyAssignments.map((assignment: any) => (
+                        {todayDutyAssignments.map((assignment: any, index) => (
                           <TableRow key={assignment.id}>
+                            <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                             <TableCell className="font-medium">{assignment.duty?.title}</TableCell>
                             <TableCell>
                               <Badge className={`${
@@ -537,6 +539,7 @@ export default function Dashboard() {
                       <Table>
                         <TableHeader>
                           <TableRow>
+                            <TableHead className="w-12">#</TableHead>
                             <TableHead>Time</TableHead>
                             <TableHead>Employee</TableHead>
                             <TableHead>Type</TableHead>
@@ -544,7 +547,7 @@ export default function Dashboard() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {todayAppointments.map((appointment: any) => {
+                          {todayAppointments.map((appointment: any, index) => {
                             if (!appointment || !appointment.id) return null;
                             const data = appointment.appointment || appointment;
                             const timeStr = data.appointmentDate
@@ -555,6 +558,7 @@ export default function Dashboard() {
                               : '—';
                             return (
                               <TableRow key={appointment.id}>
+                                <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                                 <TableCell className="font-medium">{timeStr}</TableCell>
                                 <TableCell>{name}</TableCell>
                                 <TableCell className="capitalize">{data.appointmentType || '—'}</TableCell>

@@ -1,4 +1,4 @@
-export const DEFAULT_STAFF_ABSOLUTE_HOURS = 12;
+export const DEFAULT_STAFF_ABSOLUTE_HOURS = 24;
 export const DEFAULT_STAFF_IDLE_MINUTES = 30;
 export const DEFAULT_PORTAL_ABSOLUTE_DAYS = 14;
 export const DEFAULT_PORTAL_IDLE_MINUTES = 60;
@@ -13,6 +13,7 @@ export type TenantSecurityPolicy = {
   portalSessionIdleMinutes: number;
   portalSessionSlidingDays: number;
   sessionWarningLeadMinutes: number;
+  idleTimeoutEnabled: boolean;
   requireMfa: boolean;
 };
 
@@ -23,6 +24,7 @@ export const DEFAULT_TENANT_SECURITY_POLICY: TenantSecurityPolicy = {
   portalSessionIdleMinutes: DEFAULT_PORTAL_IDLE_MINUTES,
   portalSessionSlidingDays: DEFAULT_PORTAL_SLIDING_DAYS,
   sessionWarningLeadMinutes: DEFAULT_SESSION_WARNING_LEAD_MINUTES,
+  idleTimeoutEnabled: true,
   requireMfa: false,
 };
 
@@ -34,12 +36,25 @@ export function mergeTenantSecurityPolicy(row: Partial<TenantSecurityPolicy> | n
     portalSessionIdleMinutes: row?.portalSessionIdleMinutes ?? DEFAULT_PORTAL_IDLE_MINUTES,
     portalSessionSlidingDays: row?.portalSessionSlidingDays ?? DEFAULT_PORTAL_SLIDING_DAYS,
     sessionWarningLeadMinutes: row?.sessionWarningLeadMinutes ?? DEFAULT_SESSION_WARNING_LEAD_MINUTES,
+    idleTimeoutEnabled: row?.idleTimeoutEnabled ?? true,
     requireMfa: row?.requireMfa ?? false,
   };
 }
 
 /** Validates warning lead against idle timeouts; throws if invalid. */
 export function assertSessionWarningLeadValid(policy: TenantSecurityPolicy): void {
+  if (!policy.idleTimeoutEnabled) {
+    const minAbsoluteMinutes = Math.min(
+      policy.staffSessionAbsoluteHours * 60,
+      policy.portalSessionAbsoluteDays * 24 * 60,
+    );
+    if (policy.sessionWarningLeadMinutes >= minAbsoluteMinutes) {
+      throw new Error(
+        `Expiry warning must be less than the shortest absolute session (${minAbsoluteMinutes} minutes).`,
+      );
+    }
+    return;
+  }
   const minIdle = Math.min(policy.staffSessionIdleMinutes, policy.portalSessionIdleMinutes);
   if (policy.sessionWarningLeadMinutes >= minIdle) {
     throw new Error(
@@ -52,9 +67,17 @@ export function sessionWarningLeadSeconds(
   policy: TenantSecurityPolicy,
   context: "staff" | "portal",
 ): number {
+  const configured = policy.sessionWarningLeadMinutes * 60;
+  if (!policy.idleTimeoutEnabled) {
+    const absoluteMinutes =
+      context === "staff"
+        ? policy.staffSessionAbsoluteHours * 60
+        : policy.portalSessionAbsoluteDays * 24 * 60;
+    const maxLead = Math.max(60, (absoluteMinutes - 1) * 60);
+    return Math.min(configured, maxLead);
+  }
   const idleMinutes =
     context === "staff" ? policy.staffSessionIdleMinutes : policy.portalSessionIdleMinutes;
-  const configured = policy.sessionWarningLeadMinutes * 60;
   const maxLead = Math.max(60, (idleMinutes - 1) * 60);
   return Math.min(configured, maxLead);
 }
@@ -75,6 +98,7 @@ type SessionActivityRow = {
 
 export function isStaffSessionExpired(session: SessionActivityRow, policy: TenantSecurityPolicy, now = new Date()): boolean {
   if (session.expires < now) return true;
+  if (!policy.idleTimeoutEnabled) return false;
   const last = session.lastActivityAt ?? session.createdAt ?? now;
   const idleMs = policy.staffSessionIdleMinutes * 60 * 1000;
   return now.getTime() - last.getTime() > idleMs;
@@ -89,6 +113,7 @@ export function isPortalSessionExpired(session: SessionActivityRow, policy: Tena
   const created = session.createdAt ?? now;
   const absoluteCap = new Date(created.getTime() + policy.portalSessionAbsoluteDays * 24 * 60 * 60 * 1000);
   if (now > absoluteCap) return true;
+  if (!policy.idleTimeoutEnabled) return false;
   const last = session.lastActivityAt ?? created;
   const idleMs = policy.portalSessionIdleMinutes * 60 * 1000;
   return now.getTime() - last.getTime() > idleMs;
@@ -146,9 +171,17 @@ export function getStaffSessionTiming(
   policy: TenantSecurityPolicy,
   now = new Date(),
 ): SessionTiming {
+  const absoluteExpiresAt = session.expires;
+  if (!policy.idleTimeoutEnabled) {
+    return {
+      idleExpiresAt: absoluteExpiresAt,
+      absoluteExpiresAt,
+      effectiveExpiresAt: absoluteExpiresAt,
+      limitingFactor: "absolute",
+    };
+  }
   const last = session.lastActivityAt ?? session.createdAt ?? now;
   const idleExpiresAt = new Date(last.getTime() + policy.staffSessionIdleMinutes * 60 * 1000);
-  const absoluteExpiresAt = session.expires;
   if (idleExpiresAt.getTime() <= absoluteExpiresAt.getTime()) {
     return { idleExpiresAt, absoluteExpiresAt, effectiveExpiresAt: idleExpiresAt, limitingFactor: "idle" };
   }
@@ -161,12 +194,22 @@ export function getPortalSessionTiming(
   now = new Date(),
 ): SessionTiming {
   const created = session.createdAt ?? now;
-  const last = session.lastActivityAt ?? created;
-  const idleExpiresAt = new Date(last.getTime() + policy.portalSessionIdleMinutes * 60 * 1000);
   const slidingExpiresAt = session.expires;
   const absoluteCap = new Date(created.getTime() + policy.portalSessionAbsoluteDays * 24 * 60 * 60 * 1000);
   const absoluteExpiresAt =
     slidingExpiresAt.getTime() <= absoluteCap.getTime() ? slidingExpiresAt : absoluteCap;
+
+  if (!policy.idleTimeoutEnabled) {
+    return {
+      idleExpiresAt: absoluteExpiresAt,
+      absoluteExpiresAt,
+      effectiveExpiresAt: absoluteExpiresAt,
+      limitingFactor: "absolute",
+    };
+  }
+
+  const last = session.lastActivityAt ?? created;
+  const idleExpiresAt = new Date(last.getTime() + policy.portalSessionIdleMinutes * 60 * 1000);
 
   const candidates: Array<{ at: Date; factor: SessionLimitingFactor }> = [
     { at: idleExpiresAt, factor: "idle" },

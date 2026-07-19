@@ -183,6 +183,7 @@ export default function PortalSupplierOrdersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>PO number</TableHead>
                       <TableHead>Order date</TableHead>
                       <TableHead>Expected delivery</TableHead>
@@ -192,8 +193,9 @@ export default function PortalSupplierOrdersPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pos.map((po) => (
+                    {pos.map((po, index) => (
                       <TableRow key={po.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="font-medium">{po.poNumber}</TableCell>
                         <TableCell>{new Date(po.orderDate).toLocaleDateString()}</TableCell>
                         <TableCell>
@@ -244,6 +246,7 @@ export default function PortalSupplierOrdersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Invoice #</TableHead>
                       <TableHead>PO</TableHead>
                       <TableHead>Amount</TableHead>
@@ -252,8 +255,9 @@ export default function PortalSupplierOrdersPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {invoices.map(({ invoice, poNumber }) => (
+                    {invoices.map(({ invoice, poNumber }, index) => (
                       <TableRow key={invoice.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                         <TableCell>{poNumber ?? "—"}</TableCell>
                         <TableCell>{invoice.amount}</TableCell>
@@ -296,6 +300,7 @@ export default function PortalSupplierOrdersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Item</TableHead>
                       <TableHead className="text-right">Qty</TableHead>
                       <TableHead className="text-right">Received</TableHead>
@@ -304,8 +309,9 @@ export default function PortalSupplierOrdersPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {poDetail.items.map((item) => (
+                    {poDetail.items.map((item, index) => (
                       <TableRow key={item.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell>
                           <span className="font-medium">{item.itemName ?? item.itemDescription ?? "Item"}</span>
                           {item.itemCode ? (

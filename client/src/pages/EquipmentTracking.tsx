@@ -178,7 +178,7 @@ export default function EquipmentTracking() {
     <div className="space-y-6 p-4 sm:p-6 pb-20 md:pb-8 bg-uventorybiz-light-gray">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Equipment Tracking</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Equipment checks</h1>
           <p className="text-muted-foreground">
             Monitor equipment status, maintenance schedules, and operational condition
           </p>

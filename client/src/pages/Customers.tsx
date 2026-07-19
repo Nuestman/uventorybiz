@@ -222,6 +222,7 @@ export default function Customers() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Customer #</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
@@ -231,8 +232,9 @@ export default function Customers() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((c) => (
+                {filtered.map((c, index) => (
                   <TableRow key={c.id}>
+                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                     <TableCell className="font-mono text-xs">{c.customerNumber || '—'}</TableCell>
                     <TableCell className="font-medium">{c.firstName} {c.lastName}</TableCell>
                     <TableCell>{c.email || '—'}</TableCell>
@@ -265,7 +267,7 @@ export default function Customers() {
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       {customers.length === 0 ? 'No customers yet. Add one to attach to sales and portal access.' : 'No matches for your search.'}
                     </TableCell>
                   </TableRow>

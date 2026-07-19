@@ -341,6 +341,7 @@ export default function WellbeingFeedback() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-12">#</TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Location</TableHead>
                           <TableHead>Anonymous</TableHead>
@@ -352,8 +353,9 @@ export default function WellbeingFeedback() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {feedbackList.map((row) => (
+                        {feedbackList.map((row, index) => (
                           <TableRow key={row.id}>
+                            <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                             <TableCell className="whitespace-nowrap">
                               {row.feedbackDate || row.createdAt?.slice(0, 10) || "—"}
                             </TableCell>

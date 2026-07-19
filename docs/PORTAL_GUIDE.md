@@ -16,8 +16,8 @@ are linked **directly to customer or supplier records**.
 
 | Party | Source record | Portal capabilities (current) |
 |---|---|---|
-| Customer | `customers` row (with email) | Dashboard, **shop & place orders (pickup or delivery)**, **track/cancel orders**, profile & password, notification preferences |
-| Supplier | `suppliers` row (with email) | Dashboard, **view purchase orders issued to them**, **submit invoices**, profile & password, notification preferences |
+| Customer | `customers` row (with email) | Dashboard, **shop & place orders (pickup or delivery)**, **track/cancel orders**, **Support (system issues)**, profile & password, notification preferences |
+| Supplier | `suppliers` row (with email) | Dashboard, **view purchase orders issued to them**, **submit invoices**, **Support (system issues)**, profile & password, notification preferences |
 
 A person can get a portal account only if a matching **customer** or **supplier**
 record exists in the tenant (matched by email), or if an admin provisions an account
@@ -132,6 +132,10 @@ Rejecting records the reviewer + optional notes; no credentials are sent.
   tracking (submitted → accepted/rejected → paid).
 - **Settings/Profile** — account email, password change, notification preferences
   (including **Order updates**, email + in-app).
+- **Support** — report system-related portal issues (login, shop, orders UX). Nav item
+  **Support** → `/portal/support` when the platform `tickets` flag is on. Creates staff
+  tickets (`source=portal`, category `it-systems`); APIs under `/api/portal/support-tickets`.
+  Staff see them in **Staff Tickets** and get `portal_system_issue` notifications.
 - **Secure messaging** — feature-flagged (`features_json.messaging`); currently only
   available to legacy accounts with an employee bridge, pending the customer/supplier
   messaging refactor.

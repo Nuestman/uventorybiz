@@ -3,11 +3,13 @@ import { MessageSquare } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { hasStaffAccess } from "@/routes";
 import { useMessagingUnreadCount } from "@/components/messaging/useMessagingThread";
+import { useFeatureEnabled } from "@/hooks/useFeatureFlags";
 import { cn } from "@/lib/utils";
 
 export function MessagingHeaderLink({ className }: { className?: string }) {
   const { user } = useAuth();
-  const enabled = hasStaffAccess(user?.role);
+  const messagingOn = useFeatureEnabled("messaging");
+  const enabled = hasStaffAccess(user?.role) && messagingOn;
   const { data } = useMessagingUnreadCount("staff", enabled);
   const count = data?.count ?? 0;
 

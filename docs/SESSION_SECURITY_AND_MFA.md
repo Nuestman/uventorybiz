@@ -13,8 +13,8 @@ MineAid separates **staff** sessions (`sessionToken` cookie) from **patient port
 
 | Setting | Staff HMS | Patient portal |
 |--------|-----------|----------------|
-| Absolute session lifetime | **12 hours** from login | **14 days** from session creation |
-| Idle timeout | **30 minutes** without API activity | **60 minutes** without API activity |
+| Absolute session lifetime | **24 hours** from login | **14 days** from session creation |
+| Idle timeout | **30 minutes** without API activity (togglable) | **60 minutes** without API activity (togglable) |
 | Sliding renewal | No (fixed absolute expiry) | Yes — each request extends expiry up to **7 days** ahead, capped by absolute max |
 | Expiry warning | **3 minutes** before logout (configurable per tenant) | Same tenant setting |
 | Magic link (portal only) | — | **15 minutes**, single-use (unchanged) |
@@ -64,7 +64,8 @@ Stored in `tenant_security_settings` (one row per tenant). Admins configure unde
 | `portal_session_absolute_days` | Max portal session from creation (1–90) |
 | `portal_session_idle_minutes` | Portal idle logout (5–1440) |
 | `portal_session_sliding_days` | Portal sliding extension per activity (1–30) |
-| `session_warning_lead_minutes` | Minutes before logout to show countdown warning (1–60; must be &lt; shortest idle timeout) |
+| `session_warning_lead_minutes` | Minutes before logout to show countdown warning (1–60; must be &lt; shortest idle timeout when idle is on) |
+| `idle_timeout_enabled` | When `false`, idle logout is off for staff and portal; absolute max session still applies |
 | `require_mfa` | When `true`, all tenant staff must enroll TOTP before full access |
 
 Super admins (`tenantId = null`) use platform defaults and are not subject to tenant MFA policy.

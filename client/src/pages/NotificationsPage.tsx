@@ -178,6 +178,7 @@ export default function NotificationsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead className="w-[28%]">Title</TableHead>
                       <TableHead className="w-[36%]">Message</TableHead>
                       <TableHead>Channel</TableHead>
@@ -187,11 +188,12 @@ export default function NotificationsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {items.map((n) => {
+                    {items.map((n, index) => {
                       const unread = notificationIsUnread(n);
                       const href = getNotificationHref(n.metadata);
                       return (
                         <TableRow key={n.id} className={cn(unread && "bg-uventorybiz-coral/5")}>
+                          <TableCell className="font-medium text-muted-foreground tabular-nums align-top">{index + 1}</TableCell>
                           <TableCell className="font-medium align-top">{n.title}</TableCell>
                           <TableCell className="text-sm text-muted-foreground align-top line-clamp-3">
                             {n.message}

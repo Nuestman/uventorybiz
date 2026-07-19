@@ -20,7 +20,7 @@
 - **Product catalog page** `/inventory-catalog` — CRUD on master items only; API `/api/inventory-catalog`.
 - **PO lines from catalog** (not location stock); create-new-item from PO posts to catalog (no stock until receive).
 - **Inline create supplier** on PO create/edit.
-- **PO receive into any store** — UI store picker + `locationId` (active fixed-site only; not fleet).
+- **PO receive into any location** — UI location picker + `locationId` (active fixed sites and fleet units).
 - **PO reverse after receipt** — `POST /api/purchase-orders/:id/reverse-receive`; stock `return_to_supplier`; status rollback toward `ordered`.
 - **Low/out-of-stock actions** on Inventory → Request stock (requisition) or Create PO (deep-link).
 - **Store Locations** admin wording (business stores; DB table still `care_locations`).

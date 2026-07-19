@@ -169,6 +169,7 @@ export default function Suppliers() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Email</TableHead>
@@ -177,8 +178,9 @@ export default function Suppliers() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((s) => (
+                {filtered.map((s, index) => (
                   <TableRow key={s.id}>
+                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell>{s.contactName || '—'}</TableCell>
                     <TableCell>{s.email || '—'}</TableCell>
@@ -206,7 +208,7 @@ export default function Suppliers() {
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       {suppliers.length === 0 ? 'No suppliers yet. Add one to use in purchase orders.' : 'No matches for your search.'}
                     </TableCell>
                   </TableRow>

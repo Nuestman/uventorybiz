@@ -256,14 +256,14 @@ export function createInventoryRouter(deps: InventoryRoutesDeps): Router {
   router.get("/inventory", authMiddleware, async (req: any, res) => {
     const tenantId = req.user?.tenantId;
     if (!tenantId) return sendError(res, 400, "User has no tenant association");
-    const ambQ = req.query.ambulanceOnly;
-    const ambulanceOnly =
-      ambQ === "true" ||
-      ambQ === true ||
-      (Array.isArray(ambQ) && ambQ[0] === "true");
-    const allLocations = req.query.allLocations === "true" || ambulanceOnly;
+    const fleetQ = req.query.fleetOnly ?? req.query.ambulanceOnly;
+    const fleetOnly =
+      fleetQ === "true" ||
+      fleetQ === true ||
+      (Array.isArray(fleetQ) && fleetQ[0] === "true");
+    const allLocations = req.query.allLocations === "true" || fleetOnly;
     let resolvedLocationId: string | undefined = typeof req.query.locationId === "string" ? req.query.locationId.trim() : undefined;
-    if (!ambulanceOnly && !allLocations && !resolvedLocationId) {
+    if (!fleetOnly && !allLocations && !resolvedLocationId) {
       const sessionToken = req.headers.authorization?.replace("Bearer ", "") || (req as any).cookies?.sessionToken;
       if (sessionToken) {
         const session = await storage.getUserSession(sessionToken);
@@ -282,7 +282,7 @@ export function createInventoryRouter(deps: InventoryRoutesDeps): Router {
       status: req.query.status as string,
       lowStock: req.query.lowStock === "true",
       locationId: resolvedLocationId,
-      locationKind: ambulanceOnly ? ("ambulance" as const) : undefined,
+      locationKind: fleetOnly ? ("fleet" as const) : undefined,
     };
     const result = await controller.list(tenantId, filters);
     if (!result.ok) return sendError(res, 500, result.error);

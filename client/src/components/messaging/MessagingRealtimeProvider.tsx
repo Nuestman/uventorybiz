@@ -26,6 +26,8 @@ const defaultValue: MessagingRealtimeContextValue = {
 const MessagingRealtimeContext = createContext<MessagingRealtimeContextValue>(defaultValue);
 
 const MAX_RECONNECT_MS = 30_000;
+/** Stop retrying after this many consecutive failures (covers feature-disabled 403). */
+const MAX_RECONNECT_ATTEMPTS = 3;
 
 function apiPrefix(audience: Audience) {
   return audience === "staff" ? "/api/messaging" : "/api/portal/messaging";
@@ -36,6 +38,16 @@ function parseStreamEvent(raw: MessageEvent<string>): MessagingStreamEvent | nul
     return JSON.parse(raw.data) as MessagingStreamEvent;
   } catch {
     return null;
+  }
+}
+
+/** Probe a non-SSE messaging endpoint — 401/403 means do not keep reconnecting. */
+async function isMessagingPermanentlyUnavailable(prefix: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${prefix}/unread-count`, { credentials: "include" });
+    return res.status === 401 || res.status === 403;
+  } catch {
+    return false;
   }
 }
 
@@ -78,6 +90,7 @@ export function MessagingRealtimeProvider({ audience, enabled = true, children }
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let reconnectAttempt = 0;
     let closed = false;
+    let permanentlyStopped = false;
 
     const invalidateInbox = () => {
       void queryClient.invalidateQueries({ queryKey: [`${prefix}/conversations`] });
@@ -120,8 +133,20 @@ export function MessagingRealtimeProvider({ audience, enabled = true, children }
       source.onmessage = onEvent;
     };
 
+    const scheduleReconnect = () => {
+      if (closed || permanentlyStopped) return;
+      if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+        permanentlyStopped = true;
+        setSseConnected(false);
+        return;
+      }
+      const delay = Math.min(MAX_RECONNECT_MS, 1000 * 2 ** reconnectAttempt);
+      reconnectAttempt += 1;
+      reconnectTimer = setTimeout(connect, delay);
+    };
+
     const connect = () => {
-      if (closed) return;
+      if (closed || permanentlyStopped) return;
       es = new EventSource(`${prefix}/stream`, { withCredentials: true });
       attachListeners(es);
 
@@ -134,10 +159,14 @@ export function MessagingRealtimeProvider({ audience, enabled = true, children }
         setSseConnected(false);
         es?.close();
         es = null;
-        if (closed) return;
-        const delay = Math.min(MAX_RECONNECT_MS, 1000 * 2 ** reconnectAttempt);
-        reconnectAttempt += 1;
-        reconnectTimer = setTimeout(connect, delay);
+        if (closed || permanentlyStopped) return;
+        void (async () => {
+          if (await isMessagingPermanentlyUnavailable(prefix)) {
+            permanentlyStopped = true;
+            return;
+          }
+          scheduleReconnect();
+        })();
       };
     };
 

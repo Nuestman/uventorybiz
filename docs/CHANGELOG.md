@@ -10,25 +10,63 @@ MineAid HMS history (pre–uventorybiz) is archived at [`purged/docs/CHANGELOG_M
 
 ## [Unreleased]
 
-Inventory and multi-store UX landed after the initial `1.0.0` baseline commit (`ac3b33d`). Still package version `1.0.0` until the next tagged release.
-
 ### Added
 
-- **Product catalog** — `/inventory-catalog` CRUD on master `inventory_items` only (no stock). API: `GET/POST /api/inventory-catalog`, `PUT/DELETE /api/inventory-catalog/:id`. Sidebar: Product Catalog; linked from Inventory.
-- **PO reverse receipt** — `POST /api/purchase-orders/:id/reverse-receive` with `{ locationId, items: [{ itemId, quantityReversed }], notes? }`. Decreases store stock, reduces `quantityReceived`, logs `return_to_supplier`, adjusts PO status (`completed` / `partially_received` / back to `ordered`). UI: Reverse receipt on partially received / completed POs.
-- **PO receive into any store** — Receive modal store picker; body `locationId` validated (active fixed-site store, not fleet).
-- **Inline create supplier** on create/edit PO modal (`POST /api/suppliers`, auto-select).
-- **Low / out-of-stock row actions** on Inventory: Request stock (requisition prefilled) and Create PO (`/purchase-orders?create=1&itemId=…&qty=…`).
-- **Store locations admin** — Admin UI copy and form for business stores (`operatingHours`, `staffCount`); default “Main Store” (table remains `care_locations`).
+### Fixed
 
 ### Changed
 
-- Purchase Orders item picker loads **catalog** (`/api/inventory-catalog`), not location stock; “Create new item” posts to catalog (stock created on receive).
-- Clinical / MineAid pitch, encounter, FHIR, telehealth, and pharmacy plan docs moved from `docs/` → `purged/docs/`.
+### Docs
+
+---
+
+## [1.1.0] - 2026-07-19
+
+Inventory multi-store UX from after `1.0.0`, plus business assets, fleet rename, portal support tickets, session controls, and messaging feature flag.
+
+### Added
+
+- **Business Assets register** — `/assets` CRUD with auto tags (`AST-######`), types including `vehicle` (provisions linked fleet stock location). Ticket forms use asset dropdown (`assetId`). Sidebar: Business Assets group. Migrations `0020`–`0024`. Spec: [BUSINESS_ASSETS_MANAGEMENT.md](./BUSINESS_ASSETS_MANAGEMENT.md).
+- **Vehicle kind** — `commute` | `mobile_store` on business assets; Assets + Fleet forms; existing vehicles default to commute (`0024`).
+- **Mobile store / fleet inventory guide** — [MOBILE_STORE_AND_FLEET_INVENTORY.md](./MOBILE_STORE_AND_FLEET_INVENTORY.md).
+- **Portal system-issue tickets** — `/portal/support`; APIs under `/api/portal/support-tickets`; staff queue `source=portal`. Migrations `0016`, `0025` (attachments).
+- **Secure Messaging platform flag** — Super-admin `messaging` (default **off**); gates staff/portal messaging APIs, UI, and SSE.
+- **Ticket duplicate prompt** — New ticket + fleet pre-start lodge modal warn when open/triaged/in-progress tickets exist in the same category (`GET /api/tickets/active-in-category`).
+- **Product catalog** — `/inventory-catalog` CRUD on master items (no stock).
+- **PO reverse receipt** — `POST /api/purchase-orders/:id/reverse-receive`.
+- **PO receive into any location** — Store or fleet unit picker (`locationId`).
+- **Inline create supplier** on PO create/edit.
+- **Low / out-of-stock row actions** on Inventory (requisition / Create PO).
+- **Store locations admin** — Business store copy (`care_locations`).
+- **Idle timeout toggle** — `idle_timeout_enabled` (migration `0018`).
+
+### Fixed
+
+- Asset tag counter syncs to `MAX(existing AST-######)` before increment; create retries on unique collision; friendly write errors.
+- Feature-flag DB failures cache defaults for 30s (no Neon timeout stampede).
+- Portal messaging SSE stops reconnecting when platform messaging is off.
+- Super-admin without tenant: `GET /api/settings` returns `null`; client skips fetch when no `tenantId`.
+- Business Assets review hardening (counter repair `0021`, fleet sync, options for pickers, `?edit=` race, retired `includeId`).
+- Fleet sidebar/routes and pre-start UX under `/assets/fleet/*`.
+
+### Changed
+
+- Staff absolute session default **12h → 24h** (`0017`).
+- **Fleet DB/API rename** — `ambulance_*` → `fleet_*`, `location_kind` `ambulance` → `fleet` (`0019`); UI under `client/src/pages/fleet/`.
+- Fleet pre-start tri-state checklist; repair ticket before complete when Faulty.
+- Vehicle **Ops** / **Stationed at** / location filter on Assets register.
+- Asset statuses aligned with equipment checks + `sold` (`0022`, `0023`).
+- Equipment checks under Inventory; PO catalog-driven lines.
+- Clinical / MineAid docs moved `docs/` → `purged/docs/`.
+
+### Schema
+
+- Drizzle journal `0016`–`0025` (portal support, sessions, fleet rename, business assets, vehicle kind, portal ticket attachments).
 
 ### Docs
 
-- Updated [INVENTORY_IMPLEMENTATION_SCAN.md](./INVENTORY_IMPLEMENTATION_SCAN.md), [INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md](./INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md), [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md), [NEXT_DEV_SESSION.md](./NEXT_DEV_SESSION.md), [UVENTORYBIZ.md](./UVENTORYBIZ.md), [VERSION.md](./VERSION.md).
+- [BUSINESS_ASSETS_MANAGEMENT.md](./BUSINESS_ASSETS_MANAGEMENT.md), [MOBILE_STORE_AND_FLEET_INVENTORY.md](./MOBILE_STORE_AND_FLEET_INVENTORY.md)
+- Updated inventory, portal, session, sidebar, ticketing, and status docs
 
 ---
 

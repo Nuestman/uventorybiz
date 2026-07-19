@@ -391,6 +391,7 @@ export default function WellbeingWorkFitness() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Employee</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead>Medications</TableHead>
@@ -400,7 +401,7 @@ export default function WellbeingWorkFitness() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {cases.map((row) => {
+                  {cases.map((row, index) => {
                     const name = `${row.employee?.firstName ?? ""} ${row.employee?.lastName ?? ""}`.trim() || "Unknown";
                     const jobTitle = formatEmployeeJobTitle(row.employee);
                     const selfDeclared = row.submittedByEmployee && !row.locationId;
@@ -408,6 +409,7 @@ export default function WellbeingWorkFitness() {
                     const assessedBy = formatWorkFitnessReviewerName(row.reviewedByUser);
                     return (
                       <TableRow key={row.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell>
                           <p className="text-sm font-medium">{name}</p>
                           {jobTitle ? <p className="text-xs text-uventorybiz-gray">{jobTitle}</p> : null}

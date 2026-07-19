@@ -87,9 +87,25 @@ Sidebar configuration is centralized in `client/src/config/sidebarConfig.tsx`. T
 - Transactions (`/inventory-transactions`)
 - Purchase Orders (`/purchase-orders`)
 - Transaction History (`/transaction-history`)
-- Equipment Tracking (`/equipment-tracking`)
 
 **Access**: All authenticated users
+
+### Business Assets
+
+**Purpose**: Fixed assets register (equipment, vehicles/fleet, IT, tools) with auto tags, plus fleet operations
+
+**Items** (dropdown):
+- All assets (`/assets`) — tagged register overview
+- Equipment checks (`/assets/equipment-checks`) — status & maintenance for inventory equipment category
+- Fleet (`/assets/fleet`) — vehicle register and ops status
+- Pre-start checks (`/assets/fleet/pre-start`)
+- On-board inventory (`/assets/fleet/inventory`)
+
+Legacy `/fleet#…` and `/fleets/*` paths redirect to `/assets/fleet/*` (hash tabs caused broken nested sidebar links). `/equipment-tracking` redirects to `/assets/equipment-checks`.
+
+**Access**: `fleet_operator`, `staff`, `admin`, `super_admin` (feature flag key `fleet`)
+
+See [BUSINESS_ASSETS_MANAGEMENT.md](./BUSINESS_ASSETS_MANAGEMENT.md).
 
 ### 5. Administration
 

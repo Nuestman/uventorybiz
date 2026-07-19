@@ -893,6 +893,7 @@ export default function WellbeingFollowUps() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Employee</TableHead>
                   <TableHead>Context</TableHead>
                   <TableHead>Scheduled</TableHead>
@@ -905,7 +906,7 @@ export default function WellbeingFollowUps() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row) => {
+                {rows.map((row, index) => {
                   const f = row.followUp;
                   const name =
                     `${row.employee?.firstName ?? ""} ${row.employee?.lastName ?? ""}`.trim() ||
@@ -929,6 +930,7 @@ export default function WellbeingFollowUps() {
 
                   return (
                     <TableRow key={f.id}>
+                      <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                       <TableCell>
                         <div className="text-sm font-medium">{name}</div>
                         <div className="text-xs text-muted-foreground font-mono">

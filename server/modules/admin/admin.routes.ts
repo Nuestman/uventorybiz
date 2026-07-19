@@ -61,6 +61,7 @@ const adminSecuritySettingsPutSchema = z.object({
   portalSessionIdleMinutes: z.number().int().min(5).max(1440).optional(),
   portalSessionSlidingDays: z.number().int().min(1).max(30).optional(),
   sessionWarningLeadMinutes: z.number().int().min(1).max(60).optional(),
+  idleTimeoutEnabled: z.boolean().optional(),
   requireMfa: z.boolean().optional(),
 });
 

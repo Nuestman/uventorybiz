@@ -11,6 +11,8 @@ export type PortalSessionPayload = {
     employeeProfile: boolean;
     messaging: boolean;
     medications: boolean;
+    /** Platform tickets flag — enables Support / system-issue reporting. */
+    tickets: boolean;
   };
   user: {
     email: string;

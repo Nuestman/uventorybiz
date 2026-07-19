@@ -259,6 +259,7 @@ export default function SuperAdminSystemDashboard({
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Organization</TableHead>
                       <TableHead className="hidden sm:table-cell">Plan</TableHead>
                       <TableHead>Users</TableHead>
@@ -267,8 +268,9 @@ export default function SuperAdminSystemDashboard({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {recentTenants.map((t) => (
+                    {recentTenants.map((t, index) => (
                       <TableRow key={t.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="font-medium">{t.name}</TableCell>
                         <TableCell className="hidden sm:table-cell">
                           <Badge variant="secondary" className="capitalize">

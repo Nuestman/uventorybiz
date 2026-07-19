@@ -116,6 +116,7 @@ export default function SuperAdminBilling() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Organisation</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Plan</TableHead>
@@ -123,8 +124,9 @@ export default function SuperAdminBilling() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tenants.map((t) => (
+                {tenants.map((t, index) => (
                   <TableRow key={t.id}>
+                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                     <TableCell className="font-medium text-slate-900">{t.name}</TableCell>
                     <TableCell>
                       <Badge variant={t.status === "active" ? "default" : "secondary"} className="font-normal capitalize">

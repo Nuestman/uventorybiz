@@ -881,6 +881,7 @@ export default function SuperAdmin() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-12">#</TableHead>
                           <TableHead>Organization</TableHead>
                           <TableHead className="hidden md:table-cell">Contact</TableHead>
                           <TableHead className="hidden lg:table-cell">Plan</TableHead>
@@ -890,8 +891,9 @@ export default function SuperAdmin() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredTenants.map((tenant) => (
+                        {filteredTenants.map((tenant, index) => (
                           <TableRow key={tenant.id}>
+                            <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                             <TableCell>
                               <div>
                                 <div className="font-medium">{tenant.name}</div>
@@ -984,6 +986,7 @@ export default function SuperAdmin() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-12">#</TableHead>
                           <TableHead>Administrator</TableHead>
                           <TableHead className="hidden md:table-cell">Email</TableHead>
                           <TableHead className="hidden md:table-cell">Phone</TableHead>
@@ -995,8 +998,9 @@ export default function SuperAdmin() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredAdmins.map((admin) => (
+                        {filteredAdmins.map((admin, index) => (
                           <TableRow key={admin.id}>
+                            <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                             <TableCell>
                               <div className="font-medium">
                                 {admin.firstName} {admin.lastName}
@@ -1113,6 +1117,7 @@ export default function SuperAdmin() {
                             <Table>
                               <TableHeader>
                                 <TableRow>
+                                  <TableHead className="w-12">#</TableHead>
                                   <TableHead>User</TableHead>
                                   <TableHead>Role</TableHead>
                                   <TableHead>Status</TableHead>
@@ -1121,8 +1126,9 @@ export default function SuperAdmin() {
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {users.map((user) => (
+                                {users.map((user, index) => (
                                   <TableRow key={user.id}>
+                                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                                     <TableCell>
                                       <div className="flex items-center space-x-3">
                                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -1468,6 +1474,7 @@ export default function SuperAdmin() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">#</TableHead>
                         <TableHead className="w-[140px]">Created</TableHead>
                         <TableHead>Path / Context</TableHead>
                         <TableHead className="w-[140px]">Scores</TableHead>
@@ -1479,11 +1486,12 @@ export default function SuperAdmin() {
                     <TableBody>
                       {feedbackItems
                         .filter((item) => feedbackFilterStatus === "all" || item.status === feedbackFilterStatus)
-                        .map((item) => (
+                        .map((item, index) => (
                           <TableRow
                             key={item.id}
                             className={selectedFeedback?.id === item.id ? "bg-muted/40" : ""}
                           >
+                            <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                             <TableCell className="align-top text-xs text-gray-600">
                               {new Date(item.createdAt).toLocaleString()}
                             </TableCell>
@@ -1556,7 +1564,7 @@ export default function SuperAdmin() {
                         ))}
                       {!feedbackLoading && feedbackItems.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-sm text-gray-500">
+                          <TableCell colSpan={7} className="text-center py-8 text-sm text-gray-500">
                             No feedback has been submitted yet.
                           </TableCell>
                         </TableRow>

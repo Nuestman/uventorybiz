@@ -18,6 +18,7 @@ export const PORTAL_QUICK_ACCESS_COLORS: Record<string, string> = {
   "/portal/profile": "#2563eb",
   "/portal/appointments": "#0a4f6e",
   "/portal/messages": "#059669",
+  "/portal/support": "#b45309",
 };
 
 export function portalQuickAccessColor(href: string): string {

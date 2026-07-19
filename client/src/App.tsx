@@ -37,8 +37,12 @@ import OperationalDuties from "@/pages/OperationalDuties";
 import AmbulancesLegacyRedirect from "@/pages/Ambulances";
 import AmbulanceDetailLegacyRedirect from "@/pages/AmbulanceDetail";
 import AmbulanceUnitLegacyRedirect from "@/pages/AmbulanceUnitLegacyRedirect";
-import AmbulanceModule from "@/pages/ambulance/AmbulanceModule";
-import AmbulanceUnitDetail from "@/pages/ambulance/AmbulanceUnitDetail";
+import FleetLegacyRedirect from "@/pages/fleet/FleetLegacyRedirect";
+import FleetModule from "@/pages/fleet/FleetModule";
+import FleetUnitDetail from "@/pages/fleet/FleetUnitDetail";
+import FleetUnitPathRedirect from "@/pages/fleet/FleetUnitPathRedirect";
+import BusinessAssetsPage from "@/pages/assets/BusinessAssetsPage";
+import EquipmentTracking from "@/pages/EquipmentTracking";
 import { RequireFleetAccess } from "@/components/RequireFleetAccess";
 import AssignmentHistory from "@/pages/AssignmentHistory";
 import ShiftReports from "@/pages/Reports";
@@ -62,7 +66,6 @@ import Profile from "@/pages/Profile";
 import Inventory from "@/pages/Inventory";
 import InventoryCatalog from "@/pages/InventoryCatalog";
 import StockTransfers from "@/pages/StockTransfers";
-import EquipmentTracking from "@/pages/EquipmentTracking";
 import PurchaseOrders from "@/pages/PurchaseOrders";
 import Suppliers from "@/pages/Suppliers";
 import Customers from "@/pages/Customers";
@@ -108,6 +111,7 @@ import PortalProfilePage from "@/portal/PortalProfilePage";
 import PortalAppointmentsPage from "@/portal/PortalAppointmentsPage";
 import PortalShopPage from "@/portal/PortalShopPage";
 import PortalOrdersPage from "@/portal/PortalOrdersPage";
+import PortalSupportPage from "@/portal/PortalSupportPage";
 import PortalSupplierOrdersPage from "@/portal/PortalSupplierOrdersPage";
 import MessagesPage from "@/pages/MessagesPage";
 import PortalMessagesPage from "@/portal/PortalMessagesPage";
@@ -371,6 +375,33 @@ function Router() {
             </PortalProtected>
           )}
         </Route>
+        <Route path="/portal/support/new">
+          {() => (
+            <PortalProtected>
+              <PortalLayout>
+                <PortalSupportPage />
+              </PortalLayout>
+            </PortalProtected>
+          )}
+        </Route>
+        <Route path="/portal/support/:id">
+          {() => (
+            <PortalProtected>
+              <PortalLayout>
+                <PortalSupportPage />
+              </PortalLayout>
+            </PortalProtected>
+          )}
+        </Route>
+        <Route path="/portal/support">
+          {() => (
+            <PortalProtected>
+              <PortalLayout>
+                <PortalSupportPage />
+              </PortalLayout>
+            </PortalProtected>
+          )}
+        </Route>
         <Route path="/portal/purchase-orders">
           {() => (
             <PortalProtected>
@@ -396,7 +427,9 @@ function Router() {
           {() => (
             <PortalProtected>
               <PortalLayout>
-                <PortalMessagesPage />
+                <RequireFeature flag="messaging" fallbackHref="/portal">
+                  <PortalMessagesPage />
+                </RequireFeature>
               </PortalLayout>
             </PortalProtected>
           )}
@@ -506,9 +539,11 @@ function Router() {
                   </Route>
                   <Route path="/messages">
                     {() => (
-                      <RequireStaffAccess>
-                        <MessagesPage />
-                      </RequireStaffAccess>
+                      <RequireFeature flag="messaging">
+                        <RequireStaffAccess>
+                          <MessagesPage />
+                        </RequireStaffAccess>
+                      </RequireFeature>
                     )}
                   </Route>
                   <Route path="/reports/overview">
@@ -553,23 +588,70 @@ function Router() {
                       </RequireFeature>
                     )}
                   </Route>
-                  <Route path="/fleet/units/:id">
+                  <Route path="/assets/fleet/units/:id">
                     {() => (
                       <RequireFeature flag="fleet">
                         <RequireFleetAccess>
-                          <AmbulanceUnitDetail />
+                          <FleetUnitDetail />
                         </RequireFleetAccess>
                       </RequireFeature>
                     )}
                   </Route>
-                  <Route path="/fleet">
+                  <Route path="/assets/fleet/pre-start">
                     {() => (
                       <RequireFeature flag="fleet">
                         <RequireFleetAccess>
-                          <AmbulanceModule />
+                          <FleetModule />
                         </RequireFleetAccess>
                       </RequireFeature>
                     )}
+                  </Route>
+                  <Route path="/assets/fleet/inventory">
+                    {() => (
+                      <RequireFeature flag="fleet">
+                        <RequireFleetAccess>
+                          <FleetModule />
+                        </RequireFleetAccess>
+                      </RequireFeature>
+                    )}
+                  </Route>
+                  <Route path="/assets/fleet">
+                    {() => (
+                      <RequireFeature flag="fleet">
+                        <RequireFleetAccess>
+                          <FleetModule />
+                        </RequireFleetAccess>
+                      </RequireFeature>
+                    )}
+                  </Route>
+                  <Route path="/assets">
+                    {() => (
+                      <RequireFeature flag="fleet">
+                        <RequireFleetAccess>
+                          <BusinessAssetsPage />
+                        </RequireFleetAccess>
+                      </RequireFeature>
+                    )}
+                  </Route>
+                  <Route path="/fleets/units/:id" component={FleetUnitPathRedirect} />
+                  <Route path="/fleets/pre-start">
+                    {() => <Redirect to="/assets/fleet/pre-start" />}
+                  </Route>
+                  <Route path="/fleets/inventory">
+                    {() => <Redirect to="/assets/fleet/inventory" />}
+                  </Route>
+                  <Route path="/fleets">
+                    {() => <Redirect to="/assets/fleet" />}
+                  </Route>
+                  <Route path="/fleet/units/:id" component={FleetUnitPathRedirect} />
+                  <Route path="/fleet">
+                    {() => <FleetLegacyRedirect />}
+                  </Route>
+                  <Route path="/equipment-tracking">
+                    {() => <EquipmentTracking />}
+                  </Route>
+                  <Route path="/assets/equipment-checks">
+                    {() => <Redirect to="/equipment-tracking" />}
                   </Route>
                   <Route path="/ambulance/units/:id" component={AmbulanceUnitLegacyRedirect} />
                   <Route path="/ambulance" component={AmbulancesLegacyRedirect} />
@@ -644,7 +726,6 @@ function Router() {
                     )}
                   </Route>
                   <Route path="/stock-transfers" component={StockTransfers} />
-                  <Route path="/equipment-tracking" component={EquipmentTracking} />
                   <Route path="/purchase-orders" component={PurchaseOrders} />
                   <Route path="/suppliers" component={Suppliers} />
                   <Route path="/customers" component={Customers} />

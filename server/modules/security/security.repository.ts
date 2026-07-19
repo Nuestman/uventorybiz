@@ -28,6 +28,7 @@ export async function getTenantSecurityPolicy(tenantId: string | null | undefine
     portalSessionIdleMinutes: row.portalSessionIdleMinutes,
     portalSessionSlidingDays: row.portalSessionSlidingDays,
     sessionWarningLeadMinutes: row.sessionWarningLeadMinutes,
+    idleTimeoutEnabled: row.idleTimeoutEnabled,
     requireMfa: row.requireMfa,
   });
 }
@@ -45,6 +46,7 @@ export async function upsertTenantSecuritySettings(
     portalSessionIdleMinutes: data.portalSessionIdleMinutes ?? existing?.portalSessionIdleMinutes,
     portalSessionSlidingDays: data.portalSessionSlidingDays ?? existing?.portalSessionSlidingDays,
     sessionWarningLeadMinutes: data.sessionWarningLeadMinutes ?? existing?.sessionWarningLeadMinutes,
+    idleTimeoutEnabled: data.idleTimeoutEnabled ?? existing?.idleTimeoutEnabled,
     requireMfa: data.requireMfa ?? existing?.requireMfa,
   });
   assertSessionWarningLeadValid(merged);
@@ -58,6 +60,7 @@ export async function upsertTenantSecuritySettings(
       portalSessionIdleMinutes: merged.portalSessionIdleMinutes,
       portalSessionSlidingDays: merged.portalSessionSlidingDays,
       sessionWarningLeadMinutes: merged.sessionWarningLeadMinutes,
+      idleTimeoutEnabled: merged.idleTimeoutEnabled,
       requireMfa: merged.requireMfa,
       updatedAt: now,
     })
@@ -70,6 +73,7 @@ export async function upsertTenantSecuritySettings(
         portalSessionIdleMinutes: merged.portalSessionIdleMinutes,
         portalSessionSlidingDays: merged.portalSessionSlidingDays,
         sessionWarningLeadMinutes: merged.sessionWarningLeadMinutes,
+        idleTimeoutEnabled: merged.idleTimeoutEnabled,
         requireMfa: merged.requireMfa,
         updatedAt: now,
       },

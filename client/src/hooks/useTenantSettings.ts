@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getQueryFn } from "@/lib/queryClient";
 import { formatCurrency as formatCurrencyUtil } from "@/lib/currency";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface TenantSettings {
   tenantId: string;
@@ -24,10 +25,14 @@ export interface TenantSettings {
  * When user has no tenant (e.g. super_admin), currency falls back to GHS.
  */
 export function useTenantSettings() {
+  const { user } = useAuth();
+  const hasTenant = !!user?.tenantId;
+
   const { data: settings, isLoading } = useQuery<TenantSettings | null>({
     queryKey: ["/api/settings"],
     queryFn: getQueryFn<TenantSettings | null>({ on401: "returnNull" }),
     staleTime: 5 * 60 * 1000,
+    enabled: hasTenant,
   });
 
   const currencyCode = settings?.currencyCode ?? "GHS";
@@ -39,6 +44,6 @@ export function useTenantSettings() {
     settings: settings ?? null,
     currencyCode,
     formatCurrency,
-    isLoading,
+    isLoading: hasTenant && isLoading,
   };
 }

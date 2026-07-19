@@ -922,6 +922,7 @@ export function createAdminController(storage: IStorage) {
           portalSessionIdleMinutes: body.portalSessionIdleMinutes,
           portalSessionSlidingDays: body.portalSessionSlidingDays,
           sessionWarningLeadMinutes: body.sessionWarningLeadMinutes,
+          idleTimeoutEnabled: body.idleTimeoutEnabled,
           requireMfa: body.requireMfa,
         });
         return { ok: true as const, data: merged };

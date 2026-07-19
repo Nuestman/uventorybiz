@@ -23,9 +23,12 @@ export function useFeatureFlags() {
 /**
  * Whether a single platform feature is enabled.
  * Returns false while flags are loading so disabled features never flash on.
+ * Unknown keys default to enabled (legacy); registered flags use their API value
+ * (including default-off features such as messaging).
  */
 export function useFeatureEnabled(key: string): boolean {
   const { flags, isLoading } = useFeatureFlags();
   if (isLoading) return false;
+  if (key === "messaging") return flags[key] ?? false;
   return flags[key] ?? true;
 }

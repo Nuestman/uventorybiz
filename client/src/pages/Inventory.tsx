@@ -97,7 +97,7 @@ interface NewRequisitionItem {
 }
 
 export type InventoryProps = {
-  /** When true, only stock at ambulance care locations; used inside Ambulance & EMS module. */
+  /** When true, only stock at fleet vehicle care locations; used inside Fleet module. */
   ambulanceInventoryMode?: boolean;
 };
 
@@ -322,9 +322,9 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
   });
 
   const { data: ambulanceFleet = [] } = useQuery({
-    queryKey: ['/api/ambulances', { includeInactive: true, ui: 'inventory-filter' }],
+    queryKey: ['/api/fleet', { includeInactive: true, ui: 'inventory-filter' }],
     queryFn: async () => {
-      const res = await fetch('/api/ambulances?includeInactive=true', { credentials: 'include' });
+      const res = await fetch('/api/fleet?includeInactive=true', { credentials: 'include' });
       if (!res.ok) return [];
       return res.json();
     },
@@ -344,7 +344,7 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
         status: selectedStatus,
         location: selectedLocation,
         lowStock: showLowStock,
-        ambulanceOnly: ambulanceInventoryMode,
+        fleetOnly: ambulanceInventoryMode,
       },
     ],
     queryFn: async () => {
@@ -354,7 +354,7 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
       }
       if (selectedStatus && selectedStatus !== 'all') params.append('status', selectedStatus);
       if (ambulanceInventoryMode) {
-        params.append('ambulanceOnly', 'true');
+        params.append('fleetOnly', 'true');
         params.append('allLocations', 'true');
         if (selectedLocation && selectedLocation !== 'all') {
           params.append('locationId', selectedLocation);
@@ -1020,11 +1020,11 @@ export default function Inventory(props: InventoryProps & Partial<RouteComponent
         <div className="min-w-0">
           <h1 className="text-2xl min-[1080px]:text-3xl font-bold truncate flex items-center gap-2">
             {ambulanceInventoryMode && <Ambulance className="h-8 w-8 shrink-0 text-uventorybiz-navy" aria-hidden />}
-            {ambulanceInventoryMode ? 'On-board inventory' : 'Inventory'}
+            {ambulanceInventoryMode ? 'Vehicle inventory' : 'Inventory'}
           </h1>
           <p className="text-muted-foreground text-sm min-[1080px]:text-base">
             {ambulanceInventoryMode
-              ? 'Consumables and equipment on fleet units only. Use stock transfers to move items to or from fixed sites.'
+              ? 'Consumables and equipment on fleet vehicles only. Use stock transfers to move items to or from stores.'
               : 'Stock levels at the current store. Manage the master product list separately.'}
           </p>
         </div>

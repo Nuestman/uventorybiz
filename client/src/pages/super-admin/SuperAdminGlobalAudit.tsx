@@ -106,6 +106,7 @@ export default function SuperAdminGlobalAudit() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">#</TableHead>
                 <TableHead className="whitespace-nowrap">Time (UTC)</TableHead>
                 <TableHead>Organisation</TableHead>
                 <TableHead>User</TableHead>
@@ -118,8 +119,9 @@ export default function SuperAdminGlobalAudit() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => (
+              {rows.map((row, index) => (
                 <TableRow key={row.id}>
+                  <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                   <TableCell className="text-slate-600 text-sm whitespace-nowrap align-top">
                     {row.createdAt ? format(new Date(row.createdAt), "yyyy-MM-dd HH:mm:ss") : "—"}
                   </TableCell>

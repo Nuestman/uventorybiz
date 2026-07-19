@@ -1,12 +1,14 @@
 import { Link } from "wouter";
 import { MessageSquare } from "lucide-react";
 import { useMessagingUnreadCount } from "@/components/messaging/useMessagingThread";
+import { useFeatureEnabled } from "@/hooks/useFeatureFlags";
 import { usePortalSession } from "./usePortalSession";
 import { cn } from "@/lib/utils";
 
 export function PortalMessagingHeaderLink({ className }: { className?: string }) {
   const { session } = usePortalSession();
-  const enabled = !!session?.features.messaging;
+  const platformMessagingOn = useFeatureEnabled("messaging");
+  const enabled = !!session?.features.messaging && platformMessagingOn;
   const { data } = useMessagingUnreadCount("portal", enabled);
   const count = data?.count ?? 0;
 

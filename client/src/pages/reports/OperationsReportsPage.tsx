@@ -1228,13 +1228,15 @@ export default function OperationsReportsPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-12">#</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead className="text-right">Count</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {data.tables.ticketsByCategory.map((r) => (
+                        {data.tables.ticketsByCategory.map((r, index) => (
                           <TableRow key={`${r.categoryId ?? "unknown"}-${r.categoryName}`}>
+                            <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                             <TableCell>{r.categoryName}</TableCell>
                             <TableCell className="text-right tabular-nums">{r.count}</TableCell>
                           </TableRow>
@@ -1326,14 +1328,16 @@ export default function OperationsReportsPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-12">#</TableHead>
                           <TableHead>Assignee</TableHead>
                           <TableHead className="text-right">Open</TableHead>
                           <TableHead className="text-right">Resolved (window)</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(data.tables.ticketsByAssignee ?? []).map((r) => (
+                        {(data.tables.ticketsByAssignee ?? []).map((r, index) => (
                           <TableRow key={r.assigneeUserId ?? "unassigned"}>
+                            <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                             <TableCell>{userDisplayName(users, r.assigneeUserId)}</TableCell>
                             <TableCell className="text-right tabular-nums">{r.open}</TableCell>
                             <TableCell className="text-right tabular-nums">{r.resolvedInWindow}</TableCell>
@@ -1355,6 +1359,7 @@ export default function OperationsReportsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Duty</TableHead>
                       <TableHead>Category</TableHead>
                       <TableHead className="text-right">Assignments</TableHead>
@@ -1363,8 +1368,9 @@ export default function OperationsReportsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(data.tables.dutiesByDuty ?? []).map((r) => (
+                    {(data.tables.dutiesByDuty ?? []).map((r, index) => (
                       <TableRow key={r.dutyId}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell>{r.dutyTitle}</TableCell>
                         <TableCell className="capitalize">{r.dutyCategory}</TableCell>
                         <TableCell className="text-right tabular-nums">{r.total}</TableCell>
@@ -1385,6 +1391,7 @@ export default function OperationsReportsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Category</TableHead>
                       <TableHead className="text-right">Assignments</TableHead>
                       <TableHead className="text-right">Completed</TableHead>
@@ -1392,8 +1399,9 @@ export default function OperationsReportsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(data.tables.dutiesByCategory ?? []).map((r) => (
+                    {(data.tables.dutiesByCategory ?? []).map((r, index) => (
                       <TableRow key={r.category}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="capitalize">{r.category}</TableCell>
                         <TableCell className="text-right tabular-nums">{r.total}</TableCell>
                         <TableCell className="text-right tabular-nums">{r.completed}</TableCell>
@@ -1411,6 +1419,7 @@ export default function OperationsReportsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead className="text-right">Assignments</TableHead>
                       <TableHead className="text-right">Completed</TableHead>
@@ -1418,8 +1427,9 @@ export default function OperationsReportsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.tables.dutiesByLocation.map((r) => (
+                    {data.tables.dutiesByLocation.map((r, index) => (
                       <TableRow key={`${r.locationId ?? "unknown"}-${r.locationName}`}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell>{r.locationName}</TableCell>
                         <TableCell className="text-right tabular-nums">{r.total}</TableCell>
                         <TableCell className="text-right tabular-nums">{r.completed}</TableCell>

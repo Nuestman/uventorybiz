@@ -272,16 +272,18 @@ export default function Settings() {
     portalSessionIdleMinutes: number;
     portalSessionSlidingDays: number;
     sessionWarningLeadMinutes: number;
+    idleTimeoutEnabled: boolean;
     requireMfa: boolean;
   };
 
   const [securityDraft, setSecurityDraft] = useState<SecuritySettingsDto>({
-    staffSessionAbsoluteHours: 12,
+    staffSessionAbsoluteHours: 24,
     staffSessionIdleMinutes: 30,
     portalSessionAbsoluteDays: 14,
     portalSessionIdleMinutes: 60,
     portalSessionSlidingDays: 7,
     sessionWarningLeadMinutes: 3,
+    idleTimeoutEnabled: true,
     requireMfa: false,
   });
 
@@ -1163,6 +1165,7 @@ export default function Settings() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-12">#</TableHead>
                           <TableHead>Duty name</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead>Priority</TableHead>
@@ -1173,8 +1176,9 @@ export default function Settings() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {duties.map((duty: any) => (
+                        {duties.map((duty: any, index: number) => (
                           <TableRow key={duty.id}>
+                            <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                             <TableCell className="font-medium">{duty.title}</TableCell>
                             <TableCell className="text-sm">{duty.category}</TableCell>
                             <TableCell>
@@ -1457,6 +1461,7 @@ export default function Settings() {
                       <Table>
                         <TableHeader>
                           <TableRow>
+                            <TableHead className="w-12">#</TableHead>
                             <TableHead>Email</TableHead>
                             <TableHead>Matched record</TableHead>
                             <TableHead>Match</TableHead>
@@ -1465,8 +1470,9 @@ export default function Settings() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {portalAccessRequests.map((r) => (
+                          {portalAccessRequests.map((r, index) => (
                             <TableRow key={r.id}>
+                              <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                               <TableCell className="font-mono text-xs">{r.email}</TableCell>
                               <TableCell>
                                 {r.partyName ? (
@@ -1554,6 +1560,7 @@ export default function Settings() {
                       <Table>
                         <TableHeader>
                           <TableRow>
+                            <TableHead className="w-12">#</TableHead>
                             <TableHead>Account holder</TableHead>
                             <TableHead>Email</TableHead>
                             <TableHead>Status</TableHead>
@@ -1562,8 +1569,9 @@ export default function Settings() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {portalUsers.map((u) => (
+                          {portalUsers.map((u, index) => (
                             <TableRow key={u.id}>
+                              <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                               <TableCell>
                                 <div className="font-medium">{u.partyName}</div>
                                 <div className="text-xs text-muted-foreground capitalize">{u.partyType}</div>
@@ -1902,6 +1910,22 @@ export default function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="flex items-center justify-between gap-4 sm:col-span-2 rounded-md border p-3">
+                <div>
+                  <p className="text-sm font-medium">Idle timeout</p>
+                  <p className="text-xs text-muted-foreground">
+                    When on, staff and portal users are signed out after inactivity. Absolute max session still applies.
+                  </p>
+                </div>
+                <Switch
+                  checked={securityDraft.idleTimeoutEnabled}
+                  disabled={!canEdit}
+                  onCheckedChange={(checked) =>
+                    setSecurityDraft((s) => ({ ...s, idleTimeoutEnabled: checked }))
+                  }
+                  aria-label="Enable idle timeout"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="staff-abs-hours">Staff max session (hours)</Label>
                 <Input
@@ -1912,7 +1936,7 @@ export default function Settings() {
                   disabled={!canEdit}
                   value={securityDraft.staffSessionAbsoluteHours}
                   onChange={(e) =>
-                    setSecurityDraft((s) => ({ ...s, staffSessionAbsoluteHours: Number(e.target.value) || 12 }))
+                    setSecurityDraft((s) => ({ ...s, staffSessionAbsoluteHours: Number(e.target.value) || 24 }))
                   }
                 />
               </div>
@@ -1923,7 +1947,7 @@ export default function Settings() {
                   type="number"
                   min={5}
                   max={480}
-                  disabled={!canEdit}
+                  disabled={!canEdit || !securityDraft.idleTimeoutEnabled}
                   value={securityDraft.staffSessionIdleMinutes}
                   onChange={(e) =>
                     setSecurityDraft((s) => ({ ...s, staffSessionIdleMinutes: Number(e.target.value) || 30 }))
@@ -1951,7 +1975,7 @@ export default function Settings() {
                   type="number"
                   min={5}
                   max={1440}
-                  disabled={!canEdit}
+                  disabled={!canEdit || !securityDraft.idleTimeoutEnabled}
                   value={securityDraft.portalSessionIdleMinutes}
                   onChange={(e) =>
                     setSecurityDraft((s) => ({ ...s, portalSessionIdleMinutes: Number(e.target.value) || 60 }))
@@ -1989,7 +2013,9 @@ export default function Settings() {
                   }
                 />
                 <p className="text-xs text-muted-foreground">
-                  Shows a countdown dialog to staff and portal users before their session ends. Must be less than both idle timeouts.
+                  {securityDraft.idleTimeoutEnabled
+                    ? "Shows a countdown dialog to staff and portal users before their session ends. Must be less than both idle timeouts."
+                    : "Shows a countdown dialog before the absolute session max ends."}
                 </p>
               </div>
             </CardContent>

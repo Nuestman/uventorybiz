@@ -28,6 +28,7 @@ INSERT INTO notification_types (key, category, display_name, description, severi
   ('portal_access_request', 'portal', 'Portal Access Request', 'A customer or supplier requested portal access or sign-in help from the public portal', FALSE),
   ('portal_order_placed', 'portal', 'Portal Order Placed', 'A customer placed a new order through the portal', FALSE),
   ('portal_order_issue', 'portal', 'Portal Order Issue', 'A customer reported an order issue (not received or return request)', FALSE),
+  ('portal_system_issue', 'portal', 'Portal System Issue', 'A customer or supplier reported a system-related issue from the portal', FALSE),
   ('supplier_invoice_submitted', 'portal', 'Supplier Invoice Submitted', 'A supplier submitted an invoice through the portal', FALSE),
   ('shift_report_published', 'operations', 'Shift handover published', 'When a colleague submits or updates a shift report for your organization', FALSE),
   ('shift_report_acknowledged', 'operations', 'Shift handover acknowledged', 'When someone acknowledges a shift report you authored', FALSE)

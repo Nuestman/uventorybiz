@@ -386,6 +386,7 @@ export default function InventoryCatalog() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
@@ -397,8 +398,9 @@ export default function InventoryCatalog() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((item) => (
+                  {filtered.map((item, index) => (
                     <TableRow key={item.id}>
+                      <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{item.itemCode}</Badge>
                       </TableCell>

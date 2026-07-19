@@ -376,6 +376,7 @@ export default function OrdersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Order</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Fulfillment</TableHead>
@@ -387,7 +388,7 @@ export default function OrdersPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {orders.map((row) => (
+                    {orders.map((row, index) => (
                       <TableRow
                         key={row.order.id}
                         className={
@@ -398,6 +399,7 @@ export default function OrdersPage() {
                               : undefined
                         }
                       >
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="font-medium">{row.order.orderNumber}</TableCell>
                         <TableCell>
                           {row.customer
@@ -471,6 +473,7 @@ export default function OrdersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Invoice #</TableHead>
                       <TableHead>Supplier</TableHead>
                       <TableHead>PO</TableHead>
@@ -481,8 +484,9 @@ export default function OrdersPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {invoices.map(({ invoice, poNumber, supplierName }) => (
+                    {invoices.map(({ invoice, poNumber, supplierName }, index) => (
                       <TableRow key={invoice.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                         <TableCell>{supplierName ?? "—"}</TableCell>
                         <TableCell>{poNumber ?? "—"}</TableCell>

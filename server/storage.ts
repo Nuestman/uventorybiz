@@ -1,7 +1,13 @@
-import { AMBULANCE_PRESTART_CHECKLIST_ITEMS } from "@shared/ambulancePrestartChecklist";
+import {
+  allPrestartItemsDecided,
+  hasFaultyPrestartItems,
+  migrateLegacyResponses,
+} from "@shared/fleetPrestartChecklist";
 import { DEFAULT_INVENTORY_CATEGORIES } from "@shared/inventoryCategories";
+import { allocateNextFleetCallSign } from "./modules/fleet/nextFleetCallSign";
 import { getAuditContext } from "./shared/auditContext";
 import { LEGACY_STAFF_AUTH_PROVIDER } from "./modules/auth/auth.constants";
+import { syncVehicleAssetFromFleetOps } from "./modules/business-assets/business-assets.service";
 import {
   users,
   tenants,
@@ -35,6 +41,8 @@ import {
   ticketComments,
   ticketAttachments,
   ticketActivity,
+  businessAssets,
+  portalUsers,
   tenantSopDocuments,
   tenantSopVersions,
   tenantSignedLegalDocuments,
@@ -65,7 +73,7 @@ import {
   employeeWorkFitnessCases,
   employeeWorkFitnessMedications,
   employeeFeedback,
-  ambulancePrestartChecks,
+  fleetPrestartChecks,
   type User,
   type UpsertUser,
   type UpsertTenant,
@@ -168,11 +176,11 @@ import {
   type InsertEmployeeWorkFitnessMedication,
   type EmployeeFeedback,
   type InsertEmployeeFeedback,
-  type CreateAmbulanceInput,
-  type UpdateAmbulanceInput,
-  type AmbulancePrestartCheck,
-  type CreateAmbulancePrestartInput,
-  type UpdateAmbulancePrestartInput,
+  type CreateFleetUnitInput,
+  type UpdateFleetUnitInput,
+  type FleetPrestartCheck,
+  type CreateFleetPrestartInput,
+  type UpdateFleetPrestartInput,
   type TenantSopDocument,
   type TenantSopVersion,
   type TenantSignedLegalDocument,
@@ -356,7 +364,7 @@ export interface IStorage {
   getCareLocation(id: string, tenantId: string): Promise<CareLocation | undefined>;
   getCareLocations(
     tenantId: string,
-    options?: { includeInactive?: boolean; status?: string; locationKind?: "fixed_site" | "ambulance" }
+    options?: { includeInactive?: boolean; status?: string; locationKind?: "fixed_site" | "fleet" }
   ): Promise<CareLocation[]>;
   getPrimaryCareLocation(tenantId: string): Promise<CareLocation | undefined>;
   updateCareLocation(id: string, location: Partial<InsertCareLocation>, tenantId: string, userId: string): Promise<CareLocation>;
@@ -364,58 +372,60 @@ export interface IStorage {
   unsetPrimaryCareLocation(tenantId: string): Promise<void>;
   /** Sum of current_stock across all inventory rows at this care location (for ambulance decommission checks). */
   getTotalStockUnitsAtCareLocation(tenantId: string, locationId: string): Promise<number>;
-  createAmbulanceCareLocation(
+  createFleetCareLocation(
     tenantId: string,
     userId: string,
-    data: CreateAmbulanceInput
+    data: CreateFleetUnitInput
   ): Promise<CareLocation>;
-  updateAmbulanceCareLocation(
+  updateFleetCareLocation(
     id: string,
     tenantId: string,
     userId: string,
-    data: UpdateAmbulanceInput
+    data: UpdateFleetUnitInput
   ): Promise<CareLocation>;
-  listAmbulancesForTenant(
+  listFleetUnitsForTenant(
     tenantId: string,
     options?: { includeInactive?: boolean }
   ): Promise<Array<CareLocation & { stationedAtLocationName: string | null }>>;
 
-  listAmbulancePrestartChecks(
+  listFleetPrestartChecks(
     tenantId: string,
-    filters?: { ambulanceLocationId?: string; fromShiftDate?: string; toShiftDate?: string }
+    filters?: { fleetLocationId?: string; fromShiftDate?: string; toShiftDate?: string }
   ): Promise<
     Array<
-      AmbulancePrestartCheck & {
-        ambulanceName: string;
+      FleetPrestartCheck & {
+        fleetName: string;
+        fleetOpsStatus: string | null;
         completedByFirstName: string | null;
         completedByLastName: string | null;
       }
     >
   >;
-  getAmbulancePrestartCheck(id: string, tenantId: string): Promise<AmbulancePrestartCheck | undefined>;
-  getAmbulancePrestartCheckEnriched(
+  getFleetPrestartCheck(id: string, tenantId: string): Promise<FleetPrestartCheck | undefined>;
+  getFleetPrestartCheckEnriched(
     id: string,
     tenantId: string
   ): Promise<
-    | (AmbulancePrestartCheck & {
-        ambulanceName: string;
+    | (FleetPrestartCheck & {
+        fleetName: string;
+        fleetOpsStatus?: string | null;
         completedByFirstName: string | null;
         completedByLastName: string | null;
       })
     | undefined
   >;
-  createAmbulancePrestartCheck(
+  createFleetPrestartCheck(
     tenantId: string,
     userId: string,
-    data: CreateAmbulancePrestartInput
-  ): Promise<AmbulancePrestartCheck>;
-  updateAmbulancePrestartCheck(
+    data: CreateFleetPrestartInput
+  ): Promise<FleetPrestartCheck>;
+  updateFleetPrestartCheck(
     id: string,
     tenantId: string,
     actorUserId: string,
     actorRole: string,
-    data: UpdateAmbulancePrestartInput
-  ): Promise<AmbulancePrestartCheck>;
+    data: UpdateFleetPrestartInput
+  ): Promise<FleetPrestartCheck>;
   setSessionLocation(sessionToken: string, locationId: string, locationName: string): Promise<void>;
 
   // Referral facilities (transfer hospitals) - TENANT ISOLATED
@@ -573,9 +583,22 @@ export interface IStorage {
       locationId?: string | null;
       relatedIncidentId?: string | null;
       assetTag?: string | null;
+      assetId?: string | null;
+    }
+  ): Promise<Ticket>;
+  /** Portal client creates a support ticket into the staff queue. */
+  createPortalSupportTicket(
+    tenantId: string,
+    portalUserId: string,
+    data: {
+      title: string;
+      descriptionHtml: string;
+      priority?: "low" | "normal" | "high";
+      categoryId: string;
     }
   ): Promise<Ticket>;
   getTicketById(id: string, tenantId: string): Promise<Ticket | undefined>;
+  getTicketCategoryBySlug(slug: string, tenantId: string): Promise<TicketCategory | undefined>;
   listTickets(
     tenantId: string,
     filters: {
@@ -583,9 +606,28 @@ export interface IStorage {
       scope: "mine" | "requested" | "assigned" | "all";
       status?: string;
       categoryId?: string;
+      source?: "staff" | "portal";
       limit?: number;
       offset?: number;
     }
+  ): Promise<
+    Array<
+      Ticket & {
+        categoryName: string;
+        requesterPortalEmail?: string | null;
+      }
+    >
+  >;
+  /** Open / triaged / in_progress tickets in a category (tenant-wide duplicate check). */
+  listActiveTicketsByCategory(
+    tenantId: string,
+    categoryId: string,
+    limit?: number
+  ): Promise<Array<Ticket & { categoryName: string }>>;
+  listPortalSupportTickets(
+    tenantId: string,
+    portalUserId: string,
+    filters?: { status?: string; limit?: number; offset?: number }
   ): Promise<Array<Ticket & { categoryName: string }>>;
   patchTicket(
     tenantId: string,
@@ -601,6 +643,7 @@ export interface IStorage {
       locationId: string | null;
       relatedIncidentId: string | null;
       assetTag: string | null;
+      assetId: string | null;
     }>
   ): Promise<Ticket | undefined>;
 
@@ -611,12 +654,30 @@ export interface IStorage {
     authorUserId: string,
     data: { bodyHtml: string; isInternal: boolean }
   ): Promise<TicketComment>;
+  addPortalTicketComment(
+    ticketId: string,
+    tenantId: string,
+    portalUserId: string,
+    data: { bodyHtml: string }
+  ): Promise<TicketComment>;
+  getPortalUserEmail(portalUserId: string, tenantId: string): Promise<string | undefined>;
 
   listTicketAttachments(ticketId: string, tenantId: string): Promise<TicketAttachment[]>;
   addTicketAttachment(
     ticketId: string,
     tenantId: string,
     uploadedByUserId: string,
+    data: {
+      fileUrl: string;
+      originalName: string;
+      mimeType?: string | null;
+      sizeBytes?: number | null;
+    }
+  ): Promise<TicketAttachment>;
+  addPortalTicketAttachment(
+    ticketId: string,
+    tenantId: string,
+    portalUserId: string,
     data: {
       fileUrl: string;
       originalName: string;
@@ -928,7 +989,7 @@ export interface IStorage {
       lowStock?: boolean;
       locationId?: string;
       /** Restrict to stock rows at care locations of this kind (e.g. ambulances). */
-      locationKind?: "fixed_site" | "ambulance";
+      locationKind?: "fixed_site" | "fleet";
     }
   ): Promise<MedicalInventory[]>;
   updateMedicalInventory(id: string, inventory: Partial<InsertMedicalInventory>, tenantId: string): Promise<MedicalInventory>;
@@ -2079,7 +2140,7 @@ export class DatabaseStorage implements IStorage {
 
   async getCareLocations(
     tenantId: string,
-    options?: { includeInactive?: boolean; status?: string; locationKind?: "fixed_site" | "ambulance" }
+    options?: { includeInactive?: boolean; status?: string; locationKind?: "fixed_site" | "fleet" }
   ): Promise<CareLocation[]> {
     const conditions = [eq(careLocations.tenantId, tenantId)];
 
@@ -2151,11 +2212,13 @@ export class DatabaseStorage implements IStorage {
     return v == null || Number.isNaN(Number(v)) ? 0 : Number(v);
   }
 
-  async createAmbulanceCareLocation(
+  async createFleetCareLocation(
     tenantId: string,
     _userId: string,
-    data: CreateAmbulanceInput
+    data: CreateFleetUnitInput
   ): Promise<CareLocation> {
+    const callSign =
+      data.callSign?.trim() || (await allocateNextFleetCallSign(tenantId));
     const [row] = await db
       .insert(careLocations)
       .values({
@@ -2163,13 +2226,13 @@ export class DatabaseStorage implements IStorage {
         locationName: data.locationName,
         locationCode: data.locationCode,
         description: data.description ?? null,
-        locationKind: "ambulance",
+        locationKind: "fleet",
         stationedAtLocationId: data.stationedAtLocationId ?? null,
-        callSign: data.callSign ?? null,
+        callSign,
         registrationPlate: data.registrationPlate ?? null,
         fleetNumber: data.fleetNumber ?? null,
         coverageNotes: data.coverageNotes ?? null,
-        ambulanceOpsStatus: data.ambulanceOpsStatus ?? "available",
+        fleetOpsStatus: data.fleetOpsStatus ?? "available",
         status: data.status ?? "active",
         isPrimary: false,
       })
@@ -2177,11 +2240,11 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async updateAmbulanceCareLocation(
+  async updateFleetCareLocation(
     id: string,
     tenantId: string,
     _userId: string,
-    data: UpdateAmbulanceInput
+    data: UpdateFleetUnitInput
   ): Promise<CareLocation> {
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     if (data.locationName !== undefined) patch.locationName = data.locationName;
@@ -2192,7 +2255,7 @@ export class DatabaseStorage implements IStorage {
     if (data.registrationPlate !== undefined) patch.registrationPlate = data.registrationPlate;
     if (data.fleetNumber !== undefined) patch.fleetNumber = data.fleetNumber;
     if (data.coverageNotes !== undefined) patch.coverageNotes = data.coverageNotes;
-    if (data.ambulanceOpsStatus !== undefined) patch.ambulanceOpsStatus = data.ambulanceOpsStatus;
+    if (data.fleetOpsStatus !== undefined) patch.fleetOpsStatus = data.fleetOpsStatus;
     if (data.status !== undefined) patch.status = data.status;
 
     const [updated] = await db
@@ -2202,7 +2265,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(careLocations.id, id),
           eq(careLocations.tenantId, tenantId),
-          eq(careLocations.locationKind, "ambulance")
+          eq(careLocations.locationKind, "fleet")
         )
       )
       .returning();
@@ -2212,11 +2275,11 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async listAmbulancesForTenant(
+  async listFleetUnitsForTenant(
     tenantId: string,
     options?: { includeInactive?: boolean }
   ): Promise<Array<CareLocation & { stationedAtLocationName: string | null }>> {
-    const conditions = [eq(careLocations.tenantId, tenantId), eq(careLocations.locationKind, "ambulance")];
+    const conditions = [eq(careLocations.tenantId, tenantId), eq(careLocations.locationKind, "fleet")];
     if (!options?.includeInactive) {
       conditions.push(eq(careLocations.status, "active"));
     }
@@ -2246,62 +2309,65 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async listAmbulancePrestartChecks(
+  async listFleetPrestartChecks(
     tenantId: string,
-    filters?: { ambulanceLocationId?: string; fromShiftDate?: string; toShiftDate?: string }
+    filters?: { fleetLocationId?: string; fromShiftDate?: string; toShiftDate?: string }
   ): Promise<
     Array<
-      AmbulancePrestartCheck & {
-        ambulanceName: string;
+      FleetPrestartCheck & {
+        fleetName: string;
+        fleetOpsStatus: string | null;
         completedByFirstName: string | null;
         completedByLastName: string | null;
       }
     >
   > {
-    const conditions: SQL[] = [eq(ambulancePrestartChecks.tenantId, tenantId)];
-    if (filters?.ambulanceLocationId?.trim()) {
-      conditions.push(eq(ambulancePrestartChecks.ambulanceLocationId, filters.ambulanceLocationId.trim()));
+    const conditions: SQL[] = [eq(fleetPrestartChecks.tenantId, tenantId)];
+    if (filters?.fleetLocationId?.trim()) {
+      conditions.push(eq(fleetPrestartChecks.fleetLocationId, filters.fleetLocationId.trim()));
     }
     if (filters?.fromShiftDate?.trim()) {
-      conditions.push(gte(ambulancePrestartChecks.shiftDate, filters.fromShiftDate.trim()));
+      conditions.push(gte(fleetPrestartChecks.shiftDate, filters.fromShiftDate.trim()));
     }
     if (filters?.toShiftDate?.trim()) {
-      conditions.push(lte(ambulancePrestartChecks.shiftDate, filters.toShiftDate.trim()));
+      conditions.push(lte(fleetPrestartChecks.shiftDate, filters.toShiftDate.trim()));
     }
     const rows = await db
       .select({
-        row: ambulancePrestartChecks,
-        ambulanceName: careLocations.locationName,
+        row: fleetPrestartChecks,
+        fleetName: careLocations.locationName,
+        fleetOpsStatus: careLocations.fleetOpsStatus,
         completedByFirstName: users.firstName,
         completedByLastName: users.lastName,
       })
-      .from(ambulancePrestartChecks)
-      .innerJoin(careLocations, eq(ambulancePrestartChecks.ambulanceLocationId, careLocations.id))
-      .innerJoin(users, eq(ambulancePrestartChecks.completedByUserId, users.id))
+      .from(fleetPrestartChecks)
+      .innerJoin(careLocations, eq(fleetPrestartChecks.fleetLocationId, careLocations.id))
+      .innerJoin(users, eq(fleetPrestartChecks.completedByUserId, users.id))
       .where(and(...conditions))
-      .orderBy(desc(ambulancePrestartChecks.checkedAt));
+      .orderBy(desc(fleetPrestartChecks.checkedAt));
     return rows.map((r) => ({
       ...r.row,
-      ambulanceName: r.ambulanceName,
+      fleetName: r.fleetName,
+      fleetOpsStatus: r.fleetOpsStatus,
       completedByFirstName: r.completedByFirstName,
       completedByLastName: r.completedByLastName,
     }));
   }
 
-  async getAmbulancePrestartCheck(id: string, tenantId: string): Promise<AmbulancePrestartCheck | undefined> {
+  async getFleetPrestartCheck(id: string, tenantId: string): Promise<FleetPrestartCheck | undefined> {
     const [row] = await db
       .select()
-      .from(ambulancePrestartChecks)
-      .where(and(eq(ambulancePrestartChecks.id, id), eq(ambulancePrestartChecks.tenantId, tenantId)));
+      .from(fleetPrestartChecks)
+      .where(and(eq(fleetPrestartChecks.id, id), eq(fleetPrestartChecks.tenantId, tenantId)));
     return row;
   }
 
-  async getAmbulancePrestartCheckEnriched(
+  async getFleetPrestartCheckEnriched(
     id: string,
     tenantId: string
   ): Promise<
-    | (AmbulancePrestartCheck & {
-        ambulanceName: string;
+    | (FleetPrestartCheck & {
+        fleetName: string;
         completedByFirstName: string | null;
         completedByLastName: string | null;
       })
@@ -2309,65 +2375,77 @@ export class DatabaseStorage implements IStorage {
   > {
     const [r] = await db
       .select({
-        row: ambulancePrestartChecks,
-        ambulanceName: careLocations.locationName,
+        row: fleetPrestartChecks,
+        fleetName: careLocations.locationName,
         completedByFirstName: users.firstName,
         completedByLastName: users.lastName,
       })
-      .from(ambulancePrestartChecks)
-      .innerJoin(careLocations, eq(ambulancePrestartChecks.ambulanceLocationId, careLocations.id))
-      .innerJoin(users, eq(ambulancePrestartChecks.completedByUserId, users.id))
-      .where(and(eq(ambulancePrestartChecks.id, id), eq(ambulancePrestartChecks.tenantId, tenantId)));
+      .from(fleetPrestartChecks)
+      .innerJoin(careLocations, eq(fleetPrestartChecks.fleetLocationId, careLocations.id))
+      .innerJoin(users, eq(fleetPrestartChecks.completedByUserId, users.id))
+      .where(and(eq(fleetPrestartChecks.id, id), eq(fleetPrestartChecks.tenantId, tenantId)));
     if (!r) return undefined;
     return {
       ...r.row,
-      ambulanceName: r.ambulanceName,
+      fleetName: r.fleetName,
       completedByFirstName: r.completedByFirstName,
       completedByLastName: r.completedByLastName,
     };
   }
 
-  async createAmbulancePrestartCheck(
+  async createFleetPrestartCheck(
     tenantId: string,
     userId: string,
-    data: CreateAmbulancePrestartInput
-  ): Promise<AmbulancePrestartCheck> {
-    const amb = await this.getCareLocation(data.ambulanceLocationId, tenantId);
-    if (!amb || amb.locationKind !== "ambulance") {
-      throw new Error("Selected unit is not a registered ambulance for this organization");
+    data: CreateFleetPrestartInput
+  ): Promise<FleetPrestartCheck> {
+    const amb = await this.getCareLocation(data.fleetLocationId, tenantId);
+    if (!amb || amb.locationKind !== "fleet") {
+      throw new Error("Selected unit is not a registered fleet vehicle for this organization");
     }
+    const responses = migrateLegacyResponses(data.responses as Record<string, unknown>);
     const st = data.status ?? "draft";
     if (st === "completed") {
-      const allPass = AMBULANCE_PRESTART_CHECKLIST_ITEMS.every((item) => data.responses[item.key] === true);
-      if (!allPass) {
-        throw new Error("All checklist items must pass before marking the form completed");
+      if (!allPrestartItemsDecided(responses)) {
+        throw new Error("Every checklist item must be marked Pass or Faulty before completing");
+      }
+      if (hasFaultyPrestartItems(responses) && !data.deficienciesNotes?.trim()) {
+        throw new Error("Deficiencies / notes are required when any item is Faulty");
       }
     }
     const [row] = await db
-      .insert(ambulancePrestartChecks)
+      .insert(fleetPrestartChecks)
       .values({
         tenantId,
-        ambulanceLocationId: data.ambulanceLocationId,
+        fleetLocationId: data.fleetLocationId,
         completedByUserId: userId,
         shiftDate: data.shiftDate,
-        responses: data.responses as object,
+        responses: responses as object,
         deficienciesNotes: data.deficienciesNotes ?? null,
         mileageReading: data.mileageReading ?? null,
         status: data.status ?? "draft",
       })
       .returning();
     if (!row) throw new Error("Failed to create pre-start check");
+    if (st === "completed" && data.opsStatus) {
+      await this.updateFleetCareLocation(data.fleetLocationId, tenantId, userId, {
+        fleetOpsStatus: data.opsStatus,
+      });
+      await syncVehicleAssetFromFleetOps(tenantId, data.fleetLocationId, {
+        opsStatus: data.opsStatus,
+        hasFaultyItems: hasFaultyPrestartItems(responses),
+      });
+    }
     return row;
   }
 
-  async updateAmbulancePrestartCheck(
+  async updateFleetPrestartCheck(
     id: string,
     tenantId: string,
     actorUserId: string,
     actorRole: string,
-    data: UpdateAmbulancePrestartInput
-  ): Promise<AmbulancePrestartCheck> {
-    const existing = await this.getAmbulancePrestartCheck(id, tenantId);
+    data: UpdateFleetPrestartInput
+  ): Promise<FleetPrestartCheck> {
+    const existing = await this.getFleetPrestartCheck(id, tenantId);
     if (!existing) throw new Error("Pre-start check not found");
     const isAdmin = actorRole === "admin" || actorRole === "super_admin";
     if (!isAdmin && existing.completedByUserId !== actorUserId) {
@@ -2376,29 +2454,44 @@ export class DatabaseStorage implements IStorage {
     if (!isAdmin && existing.status === "completed") {
       throw new Error("Completed checks cannot be edited");
     }
-    const mergedResponses =
-      data.responses != null
-        ? { ...(existing.responses as Record<string, boolean>), ...data.responses }
-        : (existing.responses as Record<string, boolean>);
+    const mergedResponses = migrateLegacyResponses({
+      ...(existing.responses as Record<string, unknown>),
+      ...(data.responses as Record<string, unknown> | undefined),
+    });
     const nextStatus = data.status ?? existing.status;
+    const nextNotes =
+      data.deficienciesNotes !== undefined ? data.deficienciesNotes : existing.deficienciesNotes;
     if (nextStatus === "completed") {
-      const allPass = AMBULANCE_PRESTART_CHECKLIST_ITEMS.every((item) => mergedResponses[item.key] === true);
-      if (!allPass) {
-        throw new Error("All checklist items must pass before marking the form completed");
+      if (!allPrestartItemsDecided(mergedResponses)) {
+        throw new Error("Every checklist item must be marked Pass or Faulty before completing");
+      }
+      if (hasFaultyPrestartItems(mergedResponses) && !nextNotes?.trim()) {
+        throw new Error("Deficiencies / notes are required when any item is Faulty");
       }
     }
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     if (data.shiftDate !== undefined) patch.shiftDate = data.shiftDate;
-    if (data.responses !== undefined) patch.responses = mergedResponses as object;
+    if (data.responses !== undefined || nextStatus === "completed") {
+      patch.responses = mergedResponses as object;
+    }
     if (data.deficienciesNotes !== undefined) patch.deficienciesNotes = data.deficienciesNotes;
     if (data.mileageReading !== undefined) patch.mileageReading = data.mileageReading;
     if (data.status !== undefined) patch.status = data.status;
     const [updated] = await db
-      .update(ambulancePrestartChecks)
-      .set(patch as Partial<AmbulancePrestartCheck>)
-      .where(and(eq(ambulancePrestartChecks.id, id), eq(ambulancePrestartChecks.tenantId, tenantId)))
+      .update(fleetPrestartChecks)
+      .set(patch as Partial<FleetPrestartCheck>)
+      .where(and(eq(fleetPrestartChecks.id, id), eq(fleetPrestartChecks.tenantId, tenantId)))
       .returning();
     if (!updated) throw new Error("Update failed");
+    if (nextStatus === "completed" && data.opsStatus) {
+      await this.updateFleetCareLocation(existing.fleetLocationId, tenantId, actorUserId, {
+        fleetOpsStatus: data.opsStatus,
+      });
+      await syncVehicleAssetFromFleetOps(tenantId, existing.fleetLocationId, {
+        opsStatus: data.opsStatus,
+        hasFaultyItems: hasFaultyPrestartItems(mergedResponses),
+      });
+    }
     return updated;
   }
 
@@ -3047,6 +3140,7 @@ export class DatabaseStorage implements IStorage {
         // Kept for backward compatibility with existing staff tickets.
         { tenantId, name: "IT / systems", slug: "it-systems", sortOrder: 30 },
         { tenantId, name: "Health & safety", slug: "health-safety", sortOrder: 40 },
+        { tenantId, name: "Other", slug: "other", sortOrder: 100 },
       ])
       .onConflictDoNothing();
   }
@@ -3273,6 +3367,7 @@ export class DatabaseStorage implements IStorage {
       locationId?: string | null;
       relatedIncidentId?: string | null;
       assetTag?: string | null;
+      assetId?: string | null;
     }
   ): Promise<Ticket> {
     await this.ensureDefaultTicketCategories(tenantId);
@@ -3287,6 +3382,21 @@ export class DatabaseStorage implements IStorage {
     if (data.relatedIncidentId) {
       const inc = await this.getIncidentReport(data.relatedIncidentId, tenantId);
       if (!inc) throw new Error("Related incident not found for tenant");
+    }
+
+    let assetId: string | null = data.assetId?.trim() ? data.assetId.trim() : null;
+    let resolvedAssetTag: string | null = null;
+    if (assetId) {
+      const [asset] = await db
+        .select({ id: businessAssets.id, assetTag: businessAssets.assetTag })
+        .from(businessAssets)
+        .where(and(eq(businessAssets.id, assetId), eq(businessAssets.tenantId, tenantId)))
+        .limit(1);
+      if (!asset) throw new Error("Asset not found for tenant");
+      resolvedAssetTag = asset.assetTag;
+      assetId = asset.id;
+    } else {
+      assetId = null;
     }
 
     return await db.transaction(async (tx) => {
@@ -3311,11 +3421,14 @@ export class DatabaseStorage implements IStorage {
           title: data.title.trim(),
           descriptionHtml: data.descriptionHtml,
           priority: data.priority ?? "normal",
+          source: "staff",
           requesterUserId: actorUserId,
+          requesterPortalUserId: null,
           assigneeUserId: null,
           locationId: data.locationId ?? null,
           relatedIncidentId: data.relatedIncidentId ?? null,
-          assetTag: data.assetTag?.trim() ? data.assetTag.trim() : null,
+          assetId,
+          assetTag: resolvedAssetTag,
           status: "open",
           createdBy: actorUserId,
           updatedBy: actorUserId,
@@ -3326,8 +3439,75 @@ export class DatabaseStorage implements IStorage {
         tenantId,
         ticketId: row.id,
         actorUserId,
+        actorPortalUserId: null,
         action: "created",
         metadata: { ticketNumber: row.ticketNumber },
+      });
+      return row;
+    });
+  }
+
+  async createPortalSupportTicket(
+    tenantId: string,
+    portalUserId: string,
+    data: {
+      title: string;
+      descriptionHtml: string;
+      priority?: "low" | "normal" | "high";
+      categoryId: string;
+    }
+  ): Promise<Ticket> {
+    await this.ensureDefaultTicketCategories(tenantId);
+    const category = await this.getTicketCategoryById(data.categoryId, tenantId);
+    if (!category?.isActive) {
+      throw new Error("Invalid or inactive ticket category");
+    }
+    const [portalUser] = await db
+      .select({ id: portalUsers.id })
+      .from(portalUsers)
+      .where(and(eq(portalUsers.id, portalUserId), eq(portalUsers.tenantId, tenantId)))
+      .limit(1);
+    if (!portalUser) throw new Error("Portal user not found for tenant");
+
+    return await db.transaction(async (tx) => {
+      const year = new Date().getUTCFullYear();
+      const [seq] = await tx
+        .insert(ticketNumberSequences)
+        .values({ tenantId, year, lastValue: 1 })
+        .onConflictDoUpdate({
+          target: [ticketNumberSequences.tenantId, ticketNumberSequences.year],
+          set: { lastValue: sql`${ticketNumberSequences.lastValue} + 1` },
+        })
+        .returning();
+      const n = seq?.lastValue ?? 1;
+      const ticketNumber = `TKT-${year}-${String(n).padStart(5, "0")}`;
+      const now = new Date();
+      const [row] = await tx
+        .insert(tickets)
+        .values({
+          tenantId,
+          ticketNumber,
+          categoryId: category.id,
+          title: data.title.trim(),
+          descriptionHtml: data.descriptionHtml,
+          priority: data.priority ?? "normal",
+          source: "portal",
+          requesterUserId: null,
+          requesterPortalUserId: portalUserId,
+          assigneeUserId: null,
+          status: "open",
+          createdBy: null,
+          updatedBy: null,
+          updatedAt: now,
+        })
+        .returning();
+      await tx.insert(ticketActivity).values({
+        tenantId,
+        ticketId: row.id,
+        actorUserId: null,
+        actorPortalUserId: portalUserId,
+        action: "created",
+        metadata: { ticketNumber: row.ticketNumber, source: "portal" },
       });
       return row;
     });
@@ -3341,6 +3521,29 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  async getTicketCategoryBySlug(slug: string, tenantId: string): Promise<TicketCategory | undefined> {
+    await this.ensureDefaultTicketCategories(tenantId);
+    const [row] = await db
+      .select()
+      .from(ticketCategories)
+      .where(
+        and(
+          eq(ticketCategories.tenantId, tenantId),
+          eq(ticketCategories.slug, slug.trim().toLowerCase())
+        )
+      );
+    return row;
+  }
+
+  async getPortalUserEmail(portalUserId: string, tenantId: string): Promise<string | undefined> {
+    const [row] = await db
+      .select({ email: portalUsers.email })
+      .from(portalUsers)
+      .where(and(eq(portalUsers.id, portalUserId), eq(portalUsers.tenantId, tenantId)))
+      .limit(1);
+    return row?.email;
+  }
+
   async listTickets(
     tenantId: string,
     filters: {
@@ -3348,10 +3551,18 @@ export class DatabaseStorage implements IStorage {
       scope: "mine" | "requested" | "assigned" | "all";
       status?: string;
       categoryId?: string;
+      source?: "staff" | "portal";
       limit?: number;
       offset?: number;
     }
-  ): Promise<Array<Ticket & { categoryName: string }>> {
+  ): Promise<
+    Array<
+      Ticket & {
+        categoryName: string;
+        requesterPortalEmail?: string | null;
+      }
+    >
+  > {
     await this.ensureDefaultTicketCategories(tenantId);
     const conditions: SQL[] = [eq(tickets.tenantId, tenantId)];
     if (filters.scope === "mine") {
@@ -3372,8 +3583,71 @@ export class DatabaseStorage implements IStorage {
     if (filters.categoryId) {
       conditions.push(eq(tickets.categoryId, filters.categoryId));
     }
+    if (filters.source) {
+      conditions.push(eq(tickets.source, filters.source));
+    }
     const limit = Math.min(filters.limit ?? 50, 100);
     const offset = filters.offset ?? 0;
+    const rows = await db
+      .select({
+        ticket: tickets,
+        categoryName: ticketCategories.name,
+        requesterPortalEmail: portalUsers.email,
+      })
+      .from(tickets)
+      .innerJoin(ticketCategories, eq(tickets.categoryId, ticketCategories.id))
+      .leftJoin(portalUsers, eq(tickets.requesterPortalUserId, portalUsers.id))
+      .where(and(...conditions))
+      .orderBy(desc(tickets.updatedAt))
+      .limit(limit)
+      .offset(offset);
+    return rows.map((r) => ({
+      ...r.ticket,
+      categoryName: r.categoryName,
+      requesterPortalEmail: r.requesterPortalEmail ?? null,
+    }));
+  }
+
+  async listActiveTicketsByCategory(
+    tenantId: string,
+    categoryId: string,
+    limit = 10
+  ): Promise<Array<Ticket & { categoryName: string }>> {
+    const rows = await db
+      .select({
+        ticket: tickets,
+        categoryName: ticketCategories.name,
+      })
+      .from(tickets)
+      .innerJoin(ticketCategories, eq(tickets.categoryId, ticketCategories.id))
+      .where(
+        and(
+          eq(tickets.tenantId, tenantId),
+          eq(tickets.categoryId, categoryId),
+          inArray(tickets.status, ["open", "triaged", "in_progress"])
+        )
+      )
+      .orderBy(desc(tickets.updatedAt))
+      .limit(Math.min(Math.max(limit, 1), 25));
+    return rows.map((r) => ({ ...r.ticket, categoryName: r.categoryName }));
+  }
+
+  async listPortalSupportTickets(
+    tenantId: string,
+    portalUserId: string,
+    filters?: { status?: string; limit?: number; offset?: number }
+  ): Promise<Array<Ticket & { categoryName: string }>> {
+    await this.ensureDefaultTicketCategories(tenantId);
+    const conditions: SQL[] = [
+      eq(tickets.tenantId, tenantId),
+      eq(tickets.source, "portal"),
+      eq(tickets.requesterPortalUserId, portalUserId),
+    ];
+    if (filters?.status) {
+      conditions.push(eq(tickets.status, filters.status as any));
+    }
+    const limit = Math.min(filters?.limit ?? 50, 100);
+    const offset = filters?.offset ?? 0;
     const rows = await db
       .select({
         ticket: tickets,
@@ -3402,6 +3676,7 @@ export class DatabaseStorage implements IStorage {
       locationId: string | null;
       relatedIncidentId: string | null;
       assetTag: string | null;
+      assetId: string | null;
     }>
   ): Promise<Ticket | undefined> {
     const existing = await this.getTicketById(ticketId, tenantId);
@@ -3418,6 +3693,15 @@ export class DatabaseStorage implements IStorage {
     if (patch.relatedIncidentId !== undefined && patch.relatedIncidentId) {
       const inc = await this.getIncidentReport(patch.relatedIncidentId, tenantId);
       if (!inc) throw new Error("Related incident not found for tenant");
+    }
+    if (patch.assetId !== undefined && patch.assetId) {
+      const [asset] = await db
+        .select({ id: businessAssets.id, assetTag: businessAssets.assetTag })
+        .from(businessAssets)
+        .where(and(eq(businessAssets.id, patch.assetId), eq(businessAssets.tenantId, tenantId)))
+        .limit(1);
+      if (!asset) throw new Error("Asset not found for tenant");
+      patch.assetTag = asset.assetTag;
     }
     if (patch.assigneeUserId) {
       const u = await this.getUserById(patch.assigneeUserId);
@@ -3455,9 +3739,15 @@ export class DatabaseStorage implements IStorage {
     if (patch.assigneeUserId !== undefined) updateRow.assigneeUserId = patch.assigneeUserId;
     if (patch.locationId !== undefined) updateRow.locationId = patch.locationId;
     if (patch.relatedIncidentId !== undefined) updateRow.relatedIncidentId = patch.relatedIncidentId;
-    if (patch.assetTag !== undefined) {
-      updateRow.assetTag = patch.assetTag?.trim() ? patch.assetTag.trim() : null;
+    if (patch.assetId !== undefined) {
+      updateRow.assetId = patch.assetId;
+      if (patch.assetId === null) {
+        updateRow.assetTag = null;
+      } else if (patch.assetTag !== undefined) {
+        updateRow.assetTag = patch.assetTag;
+      }
     }
+    // Free-text assetTag writes are ignored unless paired with assetId resolution above.
 
     const activities: Array<{ action: string; metadata: Record<string, unknown> }> = [];
     if (patch.title !== undefined && patch.title !== existing.title) {
@@ -3519,6 +3809,7 @@ export class DatabaseStorage implements IStorage {
           tenantId,
           ticketId,
           actorUserId,
+          actorPortalUserId: null,
           action: a.action,
           metadata: a.metadata,
         });
@@ -3549,6 +3840,7 @@ export class DatabaseStorage implements IStorage {
         tenantId,
         ticketId,
         authorUserId,
+        authorPortalUserId: null,
         bodyHtml: data.bodyHtml,
         isInternal: data.isInternal,
       })
@@ -3557,8 +3849,49 @@ export class DatabaseStorage implements IStorage {
       tenantId,
       ticketId,
       actorUserId: authorUserId,
+      actorPortalUserId: null,
       action: "commented",
       metadata: { isInternal: data.isInternal },
+    });
+    return row;
+  }
+
+  async addPortalTicketComment(
+    ticketId: string,
+    tenantId: string,
+    portalUserId: string,
+    data: { bodyHtml: string }
+  ): Promise<TicketComment> {
+    const ticket = await this.getTicketById(ticketId, tenantId);
+    if (!ticket) throw new Error("Ticket not found");
+    if (ticket.source !== "portal" || ticket.requesterPortalUserId !== portalUserId) {
+      throw new Error("Not allowed to comment on this ticket");
+    }
+    if (ticket.status === "closed" || ticket.status === "cancelled") {
+      throw new Error("Closed or cancelled tickets cannot accept new comments");
+    }
+    const [row] = await db
+      .insert(ticketComments)
+      .values({
+        tenantId,
+        ticketId,
+        authorUserId: null,
+        authorPortalUserId: portalUserId,
+        bodyHtml: data.bodyHtml,
+        isInternal: false,
+      })
+      .returning();
+    await db
+      .update(tickets)
+      .set({ updatedAt: new Date() })
+      .where(and(eq(tickets.id, ticketId), eq(tickets.tenantId, tenantId)));
+    await db.insert(ticketActivity).values({
+      tenantId,
+      ticketId,
+      actorUserId: null,
+      actorPortalUserId: portalUserId,
+      action: "commented",
+      metadata: { isInternal: false, source: "portal" },
     });
     return row;
   }
@@ -3594,14 +3927,63 @@ export class DatabaseStorage implements IStorage {
         mimeType: data.mimeType ?? null,
         sizeBytes: data.sizeBytes ?? null,
         uploadedByUserId,
+        uploadedByPortalUserId: null,
       })
       .returning();
     await db.insert(ticketActivity).values({
       tenantId,
       ticketId,
       actorUserId: uploadedByUserId,
+      actorPortalUserId: null,
       action: "attachment_added",
       metadata: { attachmentId: row.id, originalName: data.originalName },
+    });
+    return row;
+  }
+
+  async addPortalTicketAttachment(
+    ticketId: string,
+    tenantId: string,
+    portalUserId: string,
+    data: {
+      fileUrl: string;
+      originalName: string;
+      mimeType?: string | null;
+      sizeBytes?: number | null;
+    }
+  ): Promise<TicketAttachment> {
+    const ticket = await this.getTicketById(ticketId, tenantId);
+    if (!ticket) throw new Error("Ticket not found");
+    if (ticket.source !== "portal" || ticket.requesterPortalUserId !== portalUserId) {
+      throw new Error("Not allowed to add attachments to this ticket");
+    }
+    if (ticket.status === "closed" || ticket.status === "cancelled") {
+      throw new Error("Closed or cancelled tickets cannot accept attachments");
+    }
+    const [row] = await db
+      .insert(ticketAttachments)
+      .values({
+        tenantId,
+        ticketId,
+        fileUrl: data.fileUrl,
+        originalName: data.originalName,
+        mimeType: data.mimeType ?? null,
+        sizeBytes: data.sizeBytes ?? null,
+        uploadedByUserId: null,
+        uploadedByPortalUserId: portalUserId,
+      })
+      .returning();
+    await db
+      .update(tickets)
+      .set({ updatedAt: new Date() })
+      .where(and(eq(tickets.id, ticketId), eq(tickets.tenantId, tenantId)));
+    await db.insert(ticketActivity).values({
+      tenantId,
+      ticketId,
+      actorUserId: null,
+      actorPortalUserId: portalUserId,
+      action: "attachment_added",
+      metadata: { attachmentId: row.id, originalName: data.originalName, source: "portal" },
     });
     return row;
   }
@@ -7013,7 +7395,7 @@ export class DatabaseStorage implements IStorage {
       status?: string;
       lowStock?: boolean;
       locationId?: string;
-      locationKind?: "fixed_site" | "ambulance";
+      locationKind?: "fixed_site" | "fleet";
     }
   ): Promise<MedicalInventory[]> {
     const conditions = [eq(inventoryStock.tenantId, tenantId)];
@@ -8183,12 +8565,9 @@ export class DatabaseStorage implements IStorage {
     if (!options.items?.length) throw new Error("No items to receive");
 
     const receiveLoc = await this.getCareLocation(locationId, tenantId);
-    if (!receiveLoc) throw new Error("Receive store not found for this business");
-    if (receiveLoc.locationKind === "ambulance") {
-      throw new Error("Cannot receive a purchase order into a fleet unit — choose a store location");
-    }
+    if (!receiveLoc) throw new Error("Receive location not found for this business");
     if (receiveLoc.status && receiveLoc.status !== "active") {
-      throw new Error("Cannot receive into an inactive store");
+      throw new Error("Cannot receive into an inactive location");
     }
 
     return await db.transaction(async (tx) => {
@@ -8273,9 +8652,9 @@ export class DatabaseStorage implements IStorage {
     if (!options.items?.length) throw new Error("No items to reverse");
 
     const receiveLoc = await this.getCareLocation(locationId, tenantId);
-    if (!receiveLoc) throw new Error("Store not found for this business");
-    if (receiveLoc.locationKind === "ambulance") {
-      throw new Error("Cannot reverse a purchase order from a fleet unit — choose a store location");
+    if (!receiveLoc) throw new Error("Location not found for this business");
+    if (receiveLoc.status && receiveLoc.status !== "active") {
+      throw new Error("Cannot reverse a receipt from an inactive location");
     }
 
     return await db.transaction(async (tx) => {

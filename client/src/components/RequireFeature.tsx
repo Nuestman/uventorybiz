@@ -28,7 +28,7 @@ export function RequireFeature({ flag, children, fallbackHref = "/dashboard" }: 
     );
   }
 
-  if (flags[flag] ?? true) {
+  if (flags[flag] ?? (flag === "messaging" ? false : true)) {
     return <>{children}</>;
   }
 

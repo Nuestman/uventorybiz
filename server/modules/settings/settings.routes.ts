@@ -31,11 +31,12 @@ export function createSettingsRouter(deps: SettingsRoutesDeps): Router {
 
   router.get("/settings", authMiddleware, async (req: any, res) => {
     const tenantId = await resolveTenantId(req);
-    if (!tenantId) return sendError(res, 400, "User has no tenant association");
+    // Super-admins (and any user without a tenant) have no tenant settings — return null, not 400.
+    if (!tenantId) return res.json(null);
     const result = await controller.get(tenantId);
     if (!result.ok) {
       if (result.code === "NOT_FOUND") return sendError(res, 404, result.error);
-      if (result.code === "NO_TENANT") return sendError(res, 400, result.error);
+      if (result.code === "NO_TENANT") return res.json(null);
       return sendError(res, 500, result.error);
     }
     res.json(result.data);

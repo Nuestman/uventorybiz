@@ -1,6 +1,6 @@
 import { Redirect } from "wouter";
 
-/** @deprecated Use `/fleet`. */
+/** @deprecated Use `/assets/fleet`. */
 export default function AmbulancesLegacyRedirect() {
-  return <Redirect to="/fleet#fleet" />;
+  return <Redirect to="/assets/fleet" />;
 }

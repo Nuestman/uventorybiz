@@ -49,3 +49,17 @@ export function sanitizeTicketHtml(html: string): string {
     },
   });
 }
+
+/** Escape plain portal text into sanitized ticket HTML paragraphs. */
+export function plainTextToTicketHtml(text: string): string {
+  const escaped = (text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  const withBreaks = escaped
+    .split(/\r?\n/)
+    .map((line) => (line.length ? line : "&nbsp;"))
+    .join("<br>");
+  return sanitizeTicketHtml(`<p>${withBreaks}</p>`);
+}

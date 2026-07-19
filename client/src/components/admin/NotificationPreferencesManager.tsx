@@ -430,6 +430,7 @@ export default function NotificationPreferencesManager() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead className="w-12">
                         <input
                           type="checkbox"
@@ -450,8 +451,9 @@ export default function NotificationPreferencesManager() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.map((user) => (
+                    {filteredUsers.map((user, index) => (
                       <TableRow key={user.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell>
                           <input
                             type="checkbox"

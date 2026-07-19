@@ -8,6 +8,7 @@ export type TicketRow = Ticket & {
   categoryName: string;
   requesterName?: string;
   assigneeName?: string | null;
+  requesterPortalEmail?: string | null;
 };
 
 export type TicketCommentRow = TicketComment & { authorName?: string };
@@ -27,7 +28,9 @@ function isTicketAdminRole(role: string | undefined): boolean {
 
 function canViewTicket(ticket: Ticket, userId: string, role: string | undefined): boolean {
   if (isTicketAdminRole(role)) return true;
-  return ticket.requesterUserId === userId || ticket.assigneeUserId === userId;
+  if (ticket.assigneeUserId === userId) return true;
+  if (ticket.requesterUserId && ticket.requesterUserId === userId) return true;
+  return false;
 }
 
 function canSeeInternalOnTicket(ticket: Ticket, userId: string, role: string | undefined): boolean {
@@ -122,6 +125,7 @@ export function createTicketsController(storage: IStorage) {
         scope?: "mine" | "requested" | "assigned" | "all" | string;
         status?: string;
         categoryId?: string;
+        source?: "staff" | "portal" | string;
         limit?: number;
         offset?: number;
       }
@@ -137,17 +141,20 @@ export function createTicketsController(storage: IStorage) {
         if (scope === "all" && !isAdmin) {
           return { ok: false, error: "Not allowed to list all tenant tickets", code: "FORBIDDEN" };
         }
+        const source =
+          query.source === "staff" || query.source === "portal" ? query.source : undefined;
         const rows = await storage.listTickets(tenantId, {
           viewerUserId: userId,
           scope,
           status: query.status,
           categoryId: query.categoryId,
+          source,
           limit: query.limit,
           offset: query.offset,
         });
         const userIds = new Set<string>();
         for (const t of rows) {
-          userIds.add(t.requesterUserId);
+          if (t.requesterUserId) userIds.add(t.requesterUserId);
           if (t.assigneeUserId) userIds.add(t.assigneeUserId);
         }
         const names = new Map<string, string>();
@@ -156,17 +163,56 @@ export function createTicketsController(storage: IStorage) {
             names.set(id, await displayName(storage, id));
           })
         );
-        const data: TicketRow[] = rows.map((t) => ({
-          ...t,
-          requesterName: names.get(t.requesterUserId),
-          assigneeName: t.assigneeUserId ? names.get(t.assigneeUserId) ?? null : null,
-        }));
+        const data: TicketRow[] = rows.map((t) => {
+          const portalLabel = t.requesterPortalEmail
+            ? `Portal: ${t.requesterPortalEmail}`
+            : t.source === "portal"
+              ? "Portal user"
+              : undefined;
+          return {
+            ...t,
+            requesterName: t.requesterUserId
+              ? names.get(t.requesterUserId)
+              : portalLabel,
+            assigneeName: t.assigneeUserId ? names.get(t.assigneeUserId) ?? null : null,
+          };
+        });
         return { ok: true, data };
       } catch (err) {
         console.error("tickets list:", err);
         return {
           ok: false,
           error: err instanceof Error ? err.message : "Failed to list tickets",
+        };
+      }
+    },
+
+    async listActiveInCategory(
+      tenantId: string,
+      categoryId: string
+    ): Promise<
+      TicketResult<Array<{ id: string; ticketNumber: string; title: string; status: string; categoryName: string }>>
+    > {
+      try {
+        if (!categoryId?.trim()) {
+          return { ok: false, error: "categoryId is required", code: "INVALID" };
+        }
+        const rows = await storage.listActiveTicketsByCategory(tenantId, categoryId.trim(), 10);
+        return {
+          ok: true,
+          data: rows.map((t) => ({
+            id: t.id,
+            ticketNumber: t.ticketNumber,
+            title: t.title,
+            status: t.status,
+            categoryName: t.categoryName,
+          })),
+        };
+      } catch (err) {
+        console.error("tickets listActiveInCategory:", err);
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : "Failed to check active tickets",
         };
       }
     },
@@ -181,15 +227,19 @@ export function createTicketsController(storage: IStorage) {
         priority?: "low" | "normal" | "high" | "urgent";
         locationId?: string | null;
         relatedIncidentId?: string | null;
-        assetTag?: string | null;
+        assetId?: string | null;
       }
     ): Promise<TicketResult<Ticket>> {
       try {
         const descriptionHtml = sanitizeTicketHtml(body.descriptionHtml);
         const ticket = await storage.createTicket(tenantId, userId, {
-          ...body,
+          categoryId: body.categoryId,
           title: body.title.trim(),
           descriptionHtml,
+          priority: body.priority,
+          locationId: body.locationId,
+          relatedIncidentId: body.relatedIncidentId,
+          assetId: body.assetId,
         });
         return { ok: true, data: ticket };
       } catch (err) {
@@ -222,35 +272,78 @@ export function createTicketsController(storage: IStorage) {
         ]);
         const comments = internalOk ? commentsRaw : commentsRaw.filter((c) => !c.isInternal);
         const userIds = new Set<string>();
-        userIds.add(ticket.requesterUserId);
+        if (ticket.requesterUserId) userIds.add(ticket.requesterUserId);
         if (ticket.assigneeUserId) userIds.add(ticket.assigneeUserId);
-        for (const c of comments) userIds.add(c.authorUserId);
-        for (const a of attachmentsRaw) userIds.add(a.uploadedByUserId);
-        for (const a of activityRaw) userIds.add(a.actorUserId);
+        for (const c of comments) {
+          if (c.authorUserId) userIds.add(c.authorUserId);
+        }
+        for (const a of attachmentsRaw) {
+          if (a.uploadedByUserId) userIds.add(a.uploadedByUserId);
+        }
+        for (const a of activityRaw) {
+          if (a.actorUserId) userIds.add(a.actorUserId);
+        }
         const names = new Map<string, string>();
         await Promise.all(
           Array.from(userIds).map(async (uid) => {
             names.set(uid, await displayName(storage, uid));
           })
         );
+
+        let portalRequesterEmail: string | null = null;
+        if (ticket.requesterPortalUserId) {
+          portalRequesterEmail =
+            (await storage.getPortalUserEmail(ticket.requesterPortalUserId, tenantId)) ?? null;
+        }
+
         const ticketRow: TicketRow = {
           ...ticket,
           categoryName: category?.name ?? "",
-          requesterName: names.get(ticket.requesterUserId),
+          requesterName: ticket.requesterUserId
+            ? names.get(ticket.requesterUserId)
+            : portalRequesterEmail
+              ? `Portal: ${portalRequesterEmail}`
+              : "Portal user",
           assigneeName: ticket.assigneeUserId ? names.get(ticket.assigneeUserId) ?? null : null,
+          requesterPortalEmail: portalRequesterEmail,
         };
-        const commentsRows: TicketCommentRow[] = comments.map((c) => ({
-          ...c,
-          authorName: names.get(c.authorUserId),
-        }));
-        const attachmentRows: TicketAttachmentRow[] = attachmentsRaw.map((a) => ({
-          ...a,
-          uploadedByName: names.get(a.uploadedByUserId),
-        }));
-        const activityRows: TicketActivityRow[] = activityRaw.map((a) => ({
-          ...a,
-          actorName: names.get(a.actorUserId),
-        }));
+
+        const commentsRows: TicketCommentRow[] = [];
+        for (const c of comments) {
+          let authorName: string | undefined;
+          if (c.authorUserId) {
+            authorName = names.get(c.authorUserId);
+          } else if (c.authorPortalUserId) {
+            const email = await storage.getPortalUserEmail(c.authorPortalUserId, tenantId);
+            authorName = email ? `Portal: ${email}` : "Portal user";
+          }
+          commentsRows.push({ ...c, authorName });
+        }
+
+        const attachmentRows: TicketAttachmentRow[] = [];
+        for (const a of attachmentsRaw) {
+          let uploadedByName: string | undefined;
+          if (a.uploadedByUserId) {
+            uploadedByName = names.get(a.uploadedByUserId);
+          } else if (a.uploadedByPortalUserId) {
+            const email = await storage.getPortalUserEmail(a.uploadedByPortalUserId, tenantId);
+            uploadedByName = email ? `Portal: ${email}` : "Portal user";
+          }
+          attachmentRows.push({ ...a, uploadedByName });
+        }
+
+        const activityRows: TicketActivityRow[] = [];
+        for (const a of activityRaw) {
+          let actorName: string | undefined;
+          if (a.actorUserId) {
+            actorName = names.get(a.actorUserId);
+          } else if (a.actorPortalUserId) {
+            const email = await storage.getPortalUserEmail(a.actorPortalUserId, tenantId);
+            actorName = email ? `Portal: ${email}` : "Portal user";
+          }
+          activityRows.push({ ...a, actorName });
+        }
+
         return {
           ok: true,
           data: {
@@ -284,6 +377,7 @@ export function createTicketsController(storage: IStorage) {
         locationId: string | null;
         relatedIncidentId: string | null;
         assetTag: string | null;
+        assetId: string | null;
       }>
     ): Promise<TicketResult<Ticket> | { ok: false; error: string; code: "NOT_FOUND" | "FORBIDDEN" | "INVALID" }> {
       try {
@@ -299,6 +393,7 @@ export function createTicketsController(storage: IStorage) {
           "locationId",
           "relatedIncidentId",
           "assetTag",
+          "assetId",
         ]);
         const TRIAGE_KEYS = new Set([
           "status",
@@ -316,7 +411,7 @@ export function createTicketsController(storage: IStorage) {
 
         const admin = isTicketAdminRole(role);
         const isAssignee = existing.assigneeUserId === userId;
-        const isRequester = existing.requesterUserId === userId;
+        const isRequester = !!existing.requesterUserId && existing.requesterUserId === userId;
         const terminal = existing.status === "closed" || existing.status === "cancelled";
 
         const allContent = keys.every((k) => CONTENT_KEYS.has(k as string));

@@ -75,7 +75,7 @@ export function getPostLoginHome(user: {
   tenantId?: string | null;
 } | null | undefined): string {
   if (user?.role === "super_admin" && !user?.tenantId) return "/super-admin/dashboard";
-  if (user?.role === "fleet_operator" && user?.tenantId) return "/fleet";
+  if (user?.role === "fleet_operator" && user?.tenantId) return "/assets";
   if (user && !hasStaffAccess(user.role)) return "/operational-duties";
   return "/dashboard";
 }
@@ -102,8 +102,12 @@ const PROTECTED_PATHS = [
   "/incidents",
   "/interop",
   "/operations/ambulances",
+  "/assets",
+  "/assets/fleet",
+  "/fleets",
   "/fleet",
   "/ambulance",
+  "/equipment-tracking",
   "/operational-duties",
   "/tickets",
   "/assignment-history",

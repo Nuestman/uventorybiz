@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Calendar, AlertTriangle, Package, ClipboardList, ShoppingCart, Wrench } from "lucide-react";
+import { Home, Calendar, AlertTriangle, Package, ClipboardList, ShoppingCart } from "lucide-react";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 export default function MobileNav() {
@@ -17,10 +17,10 @@ export default function MobileNav() {
     { href: "/dashboard", icon: Home, label: "Dashboard" },
     { href: "/appointments", icon: Calendar, label: "Appointments", featureFlag: "appointments" },
     { href: "/incidents", icon: AlertTriangle, label: "Incidents" },
+    { href: "/assets", icon: Package, label: "Assets", featureFlag: "fleet" },
     { href: "/inventory", icon: Package, label: "Inventory" },
     { href: "/inventory-transactions", icon: ClipboardList, label: "Transactions" },
     { href: "/purchase-orders", icon: ShoppingCart, label: "Purchase Orders" },
-    { href: "/equipment-tracking", icon: Wrench, label: "Equipment" },
   ].filter((item) => !item.featureFlag || (!flagsLoading && (flags[item.featureFlag] ?? true)));
 
   return (

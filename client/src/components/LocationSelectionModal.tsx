@@ -29,7 +29,7 @@ function LocationBadges({ location }: { location: CareLocation }) {
       <Badge variant="outline" className="text-xs">
         {location.locationCode}
       </Badge>
-      {location.locationKind === "ambulance" && (
+      {location.locationKind === "fleet" && (
         <Badge variant="secondary" className="text-xs">
           Ambulance
         </Badge>
@@ -50,7 +50,7 @@ function LocationIcon({
   location: CareLocation;
   className?: string;
 }) {
-  const Icon = location.locationKind === "ambulance" ? Ambulance : Building2;
+  const Icon = location.locationKind === "fleet" ? Ambulance : Building2;
   return <Icon className={cn("h-5 w-5", className)} aria-hidden />;
 }
 

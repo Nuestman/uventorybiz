@@ -825,6 +825,7 @@ export default function PosPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Item</TableHead>
                       <TableHead className="text-right">Sold</TableHead>
                       <TableHead className="text-right">Returned</TableHead>
@@ -832,12 +833,13 @@ export default function PosPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {returnSale.lines.map((row) => {
+                    {returnSale.lines.map((row, index) => {
                       const itemId = row.line.inventoryItemId;
                       const alreadyReturned = returnSale.returnedQuantities[itemId] ?? 0;
                       const remaining = Math.max(row.line.quantity - alreadyReturned, 0);
                       return (
                         <TableRow key={itemId}>
+                          <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                           <TableCell>
                             <div className="font-medium">{row.itemName}</div>
                             <div className="text-xs text-muted-foreground">{row.itemCode} · {formatMoney(row.line.unitPrice, returnSale.sale.currencyCode)} each</div>
@@ -919,14 +921,16 @@ export default function PosPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Item</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {receiptData.lines.map((row, i) => (
-                    <TableRow key={i}>
+                  {receiptData.lines.map((row, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                       <TableCell>{row.itemName}</TableCell>
                       <TableCell className="text-right">{row.line.quantity}</TableCell>
                       <TableCell className="text-right">{formatMoney(row.line.lineTotal, receiptData.sale.currencyCode)}</TableCell>

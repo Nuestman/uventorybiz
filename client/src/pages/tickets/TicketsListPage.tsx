@@ -71,8 +71,10 @@ type TicketRow = {
   priority: string;
   categoryName: string;
   updatedAt: string;
+  source?: string;
   requesterName?: string;
   assigneeName?: string | null;
+  requesterPortalEmail?: string | null;
 };
 
 type Category = {
@@ -125,6 +127,7 @@ export default function TicketsListPage() {
   const [scope, setScope] = useState<"requested" | "assigned" | "mine" | "all">("requested");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
 
   const [catDialogOpen, setCatDialogOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
@@ -137,8 +140,12 @@ export default function TicketsListPage() {
   const [deleteTicketTarget, setDeleteTicketTarget] = useState<TicketRow | null>(null);
 
   const ticketsQueryKey = useMemo(
-    () => ["/api/tickets", { scope, status: statusFilter, categoryId: categoryFilter }] as const,
-    [scope, statusFilter, categoryFilter]
+    () =>
+      [
+        "/api/tickets",
+        { scope, status: statusFilter, categoryId: categoryFilter, source: sourceFilter },
+      ] as const,
+    [scope, statusFilter, categoryFilter, sourceFilter]
   );
 
   const { data: tickets = [], isLoading } = useQuery({
@@ -148,6 +155,7 @@ export default function TicketsListPage() {
       params.set("scope", scope);
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (categoryFilter !== "all") params.set("categoryId", categoryFilter);
+      if (sourceFilter !== "all") params.set("source", sourceFilter);
       const res = await fetch(`/api/tickets?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       return (await res.json()) as TicketRow[];
@@ -353,12 +361,28 @@ export default function TicketsListPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                {isAdmin && (
+                  <div className="space-y-1">
+                    <Label>Source</Label>
+                    <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                      <SelectTrigger className="w-[180px] bg-white">
+                        <SelectValue placeholder="Source" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Sources</SelectItem>
+                        <SelectItem value="staff">Staff</SelectItem>
+                        <SelectItem value="portal">Portal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               <div className="rounded-md border bg-white overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Ticket #</TableHead>
                       <TableHead>Title</TableHead>
                       <TableHead>Category</TableHead>
@@ -372,7 +396,7 @@ export default function TicketsListPage() {
                     {isLoading && (
                       <TableRow>
                         <TableCell
-                          colSpan={isAdmin ? 7 : 6}
+                          colSpan={isAdmin ? 8 : 7}
                           className="text-muted-foreground"
                         >
                           Loading…
@@ -382,24 +406,39 @@ export default function TicketsListPage() {
                     {!isLoading && tickets.length === 0 && (
                       <TableRow>
                         <TableCell
-                          colSpan={isAdmin ? 7 : 6}
+                          colSpan={isAdmin ? 8 : 7}
                           className="text-muted-foreground"
                         >
                           No Tickets In This View.
                         </TableCell>
                       </TableRow>
                     )}
-                    {tickets.map((t) => (
+                    {tickets.map((t, index) => (
                       <TableRow key={t.id}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell>
-                          <Link
-                            href={`/tickets/${t.id}`}
-                            className="font-medium text-primary hover:underline"
-                          >
-                            {t.ticketNumber}
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/tickets/${t.id}`}
+                              className="font-medium text-primary hover:underline"
+                            >
+                              {t.ticketNumber}
+                            </Link>
+                            {t.source === "portal" && (
+                              <Badge variant="outline" className="text-xs">
+                                Portal
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
-                        <TableCell className="max-w-[240px] truncate">{t.title}</TableCell>
+                        <TableCell className="max-w-[240px]">
+                          <div className="truncate font-medium">{t.title}</div>
+                          {t.requesterName && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {t.requesterName}
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell>{t.categoryName}</TableCell>
                         <TableCell>
                           <Badge variant={statusBadgeVariant(t.status)}>

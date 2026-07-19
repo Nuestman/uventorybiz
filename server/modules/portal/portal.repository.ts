@@ -26,6 +26,8 @@ export const PORTAL_DEFAULT_FEATURES = {
   employeeProfile: true,
   medications: true,
   messaging: true,
+  /** Platform tickets flag is merged at session build time — default true matches platform registry. */
+  tickets: true,
 };
 
 export type PortalFeatures = {
@@ -37,6 +39,8 @@ export type PortalFeatures = {
   employeeProfile: boolean;
   medications: boolean;
   messaging: boolean;
+  /** When true (and platform tickets enabled), portal Support is available. */
+  tickets: boolean;
 };
 
 export function mergePortalFeatures(raw: unknown): PortalFeatures {
@@ -50,6 +54,8 @@ export function mergePortalFeatures(raw: unknown): PortalFeatures {
     employeeProfile: o.employeeProfile !== false,
     medications: o.medications !== false,
     messaging: o.messaging !== false,
+    // Tenant JSON cannot disable tickets; platform flag controls this (merged in routes).
+    tickets: true,
   };
 }
 

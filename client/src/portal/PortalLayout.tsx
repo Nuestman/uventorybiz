@@ -25,22 +25,27 @@ import { useUnreadOrderUpdatesCount } from "./usePortalNotifications";
 import { PORTAL_DASHBOARD, PORTAL_ORDERS, portalSignInUrl } from "./portalRoutes";
 import { PORTAL_PRIMARY_FALLBACK } from "./portalUi";
 import { usePortalBodyClass } from "./usePortalBodyClass";
+import { useFeatureEnabled } from "@/hooks/useFeatureFlags";
 
 export default function PortalLayout({ children }: { children: ReactNode }) {
   usePortalBodyClass();
   const [loc] = useLocation();
   const { session, isAuthenticated } = usePortalSession();
   const logout = usePortalLogout();
+  const platformMessagingOn = useFeatureEnabled("messaging");
+  const messagingEnabled = !!session?.features.messaging && platformMessagingOn;
   const primary = session?.tenant.primaryColor?.trim() || PORTAL_PRIMARY_FALLBACK;
   const brandName = session?.tenant.appName?.trim() || session?.tenant.name || "Customer & supplier portal";
-  const { data: messagingUnread } = useMessagingUnreadCount(
-    "portal",
-    !!session?.features.messaging,
-  );
+  const { data: messagingUnread } = useMessagingUnreadCount("portal", messagingEnabled);
   const messagesUnreadCount = messagingUnread?.count ?? 0;
   const ordersUnreadCount = useUnreadOrderUpdatesCount(isAuthenticated && !!session?.user.customerId);
 
-  const nav = buildPortalNav(session);
+  const sessionForNav =
+    session && session.features.messaging !== messagingEnabled
+      ? { ...session, features: { ...session.features, messaging: messagingEnabled } }
+      : session;
+
+  const nav = buildPortalNav(sessionForNav);
   const mobileNav = nav.filter((item) => item.href !== "/portal/profile").slice(0, 5);
 
   const handleSignOut = () => {
@@ -52,7 +57,7 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <MessagingRealtimeProvider audience="portal" enabled={!!session?.features.messaging}>
+    <MessagingRealtimeProvider audience="portal" enabled={messagingEnabled}>
       <div className="portal-root portal-page min-h-screen bg-[#f4f7f9] flex" style={{ ["--portal-primary" as string]: primary }}>
         <SessionTimeoutWarning
           variant="portal"
@@ -66,10 +71,10 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
 
         <WhatsNewDialog audience="portal" enabled={isAuthenticated} primaryColor={primary} />
 
-        {session ? (
+        {sessionForNav ? (
           <PortalDesktopSidebar
             loc={loc}
-            session={session}
+            session={sessionForNav}
             primary={primary}
             brandName={brandName}
             messagesUnreadCount={messagesUnreadCount}
@@ -87,10 +92,10 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
           >
             <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-1 min-w-0">
-                {session ? (
+                {sessionForNav ? (
                   <PortalMobileSidebar
                     loc={loc}
-                    session={session}
+                    session={sessionForNav}
                     primary={primary}
                     brandName={brandName}
                     messagesUnreadCount={messagesUnreadCount}
@@ -119,7 +124,7 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
               </Link>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {session?.features.messaging ? <PortalMessagingHeaderLink /> : null}
+                {messagingEnabled ? <PortalMessagingHeaderLink /> : null}
                 <PortalNotificationsMenu enabled={isAuthenticated} primaryColor={primary} />
                 {session?.user && (
                   <DropdownMenu>
@@ -164,12 +169,12 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          {session ? (
+          {sessionForNav ? (
             <PortalDesktopTopBar
               loc={loc}
-              session={session}
+              session={sessionForNav}
               primary={primary}
-              messagingEnabled={!!session.features.messaging}
+              messagingEnabled={messagingEnabled}
               isAuthenticated={isAuthenticated}
               onSignOut={handleSignOut}
               signOutPending={logout.isPending}

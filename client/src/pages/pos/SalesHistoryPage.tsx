@@ -327,6 +327,7 @@ export default function SalesHistoryPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>ID</TableHead>
                   <TableHead>Receipt #</TableHead>
                   <TableHead>Customer</TableHead>
@@ -341,7 +342,7 @@ export default function SalesHistoryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row) => {
+                {rows.map((row, index) => {
                   const customerName = row.customerFirstName || row.customerLastName
                     ? `${row.customerFirstName ?? ""} ${row.customerLastName ?? ""}`.trim()
                     : null;
@@ -351,6 +352,7 @@ export default function SalesHistoryPage() {
                   const date = row.completedAt ?? row.createdAt;
                   return (
                     <TableRow key={row.id}>
+                      <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground" title={row.id}>
                         {row.id.slice(0, 8)}
                       </TableCell>
@@ -479,14 +481,16 @@ export default function SalesHistoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Item</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {viewReceipt.lines.map((row, i) => (
-                    <TableRow key={i}>
+                  {viewReceipt.lines.map((row, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                       <TableCell>{row.itemName}</TableCell>
                       <TableCell className="text-right">{row.line.quantity}</TableCell>
                       <TableCell className="text-right">
@@ -558,6 +562,7 @@ export default function SalesHistoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Item</TableHead>
                     <TableHead className="text-right">Sold</TableHead>
                     <TableHead className="text-right">Returned</TableHead>
@@ -565,12 +570,13 @@ export default function SalesHistoryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {returnSale.lines.map((row) => {
+                  {returnSale.lines.map((row, index) => {
                     const itemId = row.line.inventoryItemId;
                     const alreadyReturned = returnSale.returnedQuantities[itemId] ?? 0;
                     const remaining = Math.max(row.line.quantity - alreadyReturned, 0);
                     return (
                       <TableRow key={itemId}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell>
                           <div className="font-medium">{row.itemName}</div>
                           <div className="text-xs text-muted-foreground">

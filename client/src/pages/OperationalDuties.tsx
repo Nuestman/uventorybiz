@@ -1413,6 +1413,7 @@ export default function OperationalDuties() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Duty</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Post</TableHead>
@@ -1423,8 +1424,9 @@ export default function OperationalDuties() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {todayListForShift.map((assignment: any) => (
+                {todayListForShift.map((assignment: any, index) => (
                   <TableRow key={assignment.id}>
+                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                     <TableCell>
                       <div>
                         <p className="font-medium">{assignment.duty?.title}</p>
@@ -1593,6 +1595,7 @@ export default function OperationalDuties() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Duty name</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Priority</TableHead>
@@ -1605,8 +1608,9 @@ export default function OperationalDuties() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(Array.isArray(duties) ? duties : []).map((duty: any) => (
+                {(Array.isArray(duties) ? duties : []).map((duty: any, index) => (
                   <TableRow key={duty.id}>
+                    <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                     <TableCell className="font-medium">{duty.title}</TableCell>
                     <TableCell className="text-sm">{duty.category}</TableCell>
                     <TableCell>

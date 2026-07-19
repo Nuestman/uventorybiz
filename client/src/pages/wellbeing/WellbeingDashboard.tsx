@@ -232,13 +232,14 @@ export default function WellbeingDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead className="w-[40%]">Employee</TableHead>
                       <TableHead>Reason</TableHead>
                       <TableHead className="w-[20%]">Scheduled</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {recentDue.map((row) => {
+                    {recentDue.map((row, index) => {
                       const emp = row.employee;
                       const name =
                         emp && (emp.firstName || emp.lastName)
@@ -246,6 +247,7 @@ export default function WellbeingDashboard() {
                           : emp?.employeeNumber || "Employee";
                       return (
                         <TableRow key={row.followUp.id}>
+                          <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                           <TableCell className="text-sm">
                             <div className="font-medium">{name}</div>
                             {row.company?.name && (

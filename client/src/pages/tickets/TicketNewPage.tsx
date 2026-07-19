@@ -18,7 +18,18 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { TicketRichTextEditor } from "@/components/tickets/TicketRichTextEditor";
+import { AssetTagSelect } from "@/components/assets/AssetTagSelect";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { titleCaseUi } from "@/lib/titleCaseUi";
@@ -32,18 +43,30 @@ const formSchema = z.object({
   priority: z.enum(priorities),
   locationId: z.string().optional(),
   relatedIncidentId: z.string().optional(),
-  assetTag: z.string().max(255).optional(),
+  assetId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 type CreatePayload = { values: FormValues; files: File[] };
 
+type ActiveTicketHit = {
+  id: string;
+  ticketNumber: string;
+  title: string;
+  status: string;
+  categoryName: string;
+};
+
 export default function TicketNewPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [duplicateHits, setDuplicateHits] = useState<ActiveTicketHit[]>([]);
+  const [pendingSubmit, setPendingSubmit] = useState<CreatePayload | null>(null);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["/api/ticket-categories"],
@@ -81,7 +104,7 @@ export default function TicketNewPage() {
       priority: "normal",
       locationId: "",
       relatedIncidentId: "",
-      assetTag: "",
+      assetId: "",
     },
   });
 
@@ -105,7 +128,7 @@ export default function TicketNewPage() {
           values.relatedIncidentId && values.relatedIncidentId !== "__none__"
             ? values.relatedIncidentId
             : null,
-        assetTag: values.assetTag?.trim() || null,
+        assetId: values.assetId?.trim() || null,
       };
       const res = await apiRequest("POST", "/api/tickets", payload);
       const data = (await res.json()) as { id: string };
@@ -127,6 +150,8 @@ export default function TicketNewPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
       setPendingFiles([]);
+      setPendingSubmit(null);
+      setDuplicateOpen(false);
       if (data.anyAttachmentLocal) {
         toast({
           title: "Ticket Created",
@@ -146,6 +171,33 @@ export default function TicketNewPage() {
         variant: "destructive",
       }),
   });
+
+  async function submitWithDuplicateCheck(values: FormValues) {
+    const payload: CreatePayload = { values, files: pendingFiles };
+    setCheckingDuplicates(true);
+    try {
+      const res = await fetch(
+        `/api/tickets/active-in-category?categoryId=${encodeURIComponent(values.categoryId)}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) {
+        createMutation.mutate(payload);
+        return;
+      }
+      const hits = (await res.json()) as ActiveTicketHit[];
+      if (hits.length > 0) {
+        setDuplicateHits(hits);
+        setPendingSubmit(payload);
+        setDuplicateOpen(true);
+        return;
+      }
+      createMutation.mutate(payload);
+    } catch {
+      createMutation.mutate(payload);
+    } finally {
+      setCheckingDuplicates(false);
+    }
+  }
 
   return (
     <div className="space-y-6 p-4 sm:p-6 pb-20 md:pb-8 bg-uventorybiz-light-gray min-h-screen">
@@ -171,9 +223,7 @@ export default function TicketNewPage() {
           <CardContent>
             <Form {...form}>
               <form
-                onSubmit={form.handleSubmit((v) =>
-                  createMutation.mutate({ values: v, files: pendingFiles })
-                )}
+                onSubmit={form.handleSubmit((v) => void submitWithDuplicateCheck(v))}
                 className="space-y-6"
               >
                 <FormField
@@ -296,15 +346,14 @@ export default function TicketNewPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="assetTag"
+                  name="assetId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Asset Tag / Equipment Ref (Optional)</FormLabel>
+                      <FormLabel>Asset (Optional)</FormLabel>
                       <FormControl>
-                        <Input
-                          {...field}
-                          placeholder="E.g. Serial Or Asset ID"
-                          className="bg-white"
+                        <AssetTagSelect
+                          value={field.value || null}
+                          onChange={(id) => field.onChange(id ?? "")}
                         />
                       </FormControl>
                       <FormMessage />
@@ -374,16 +423,67 @@ export default function TicketNewPage() {
                 </div>
                 <Button
                   type="submit"
-                  disabled={createMutation.isPending}
+                  disabled={createMutation.isPending || checkingDuplicates}
                   className="bg-uventorybiz-navy text-white hover:bg-uventorybiz-navy/90"
                 >
-                  {createMutation.isPending ? "Submitting…" : "Submit Ticket"}
+                  {createMutation.isPending || checkingDuplicates ? "Submitting…" : "Submit Ticket"}
                 </Button>
               </form>
             </Form>
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog
+        open={duplicateOpen}
+        onOpenChange={(open) => {
+          setDuplicateOpen(open);
+          if (!open) setPendingSubmit(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Similar Ticket Already Open?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  There {duplicateHits.length === 1 ? "is already an open ticket" : "are already open tickets"}{" "}
+                  in this category (open, triaged, or in progress). Do you still want to create another?
+                </p>
+                <ul className="space-y-1 rounded-md border bg-muted/40 p-2 text-left">
+                  {duplicateHits.map((t) => (
+                    <li key={t.id}>
+                      <Link
+                        href={`/tickets/${t.id}`}
+                        className="font-medium text-uventorybiz-navy hover:underline"
+                      >
+                        {t.ticketNumber}
+                      </Link>
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · {titleCaseUi(t.status.replace(/_/g, " "))} · {t.title}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingSubmit) createMutation.mutate(pendingSubmit);
+              }}
+              disabled={createMutation.isPending || !pendingSubmit}
+              className="bg-uventorybiz-navy text-white hover:bg-uventorybiz-navy/90"
+            >
+              {createMutation.isPending ? "Submitting…" : "Create Anyway"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <MobileNav />
     </div>
   );

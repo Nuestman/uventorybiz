@@ -537,13 +537,15 @@ export default function ComplianceReportsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">#</TableHead>
                         <TableHead>Resource type</TableHead>
                         <TableHead className="text-right">Count</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.tables.auditByResourceType.map((r) => (
+                      {data.tables.auditByResourceType.map((r, index) => (
                         <TableRow key={r.resourceType}>
+                          <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                           <TableCell className="font-mono text-xs">{r.resourceType}</TableCell>
                           <TableCell className="text-right tabular-nums">{r.count}</TableCell>
                         </TableRow>
@@ -560,13 +562,15 @@ export default function ComplianceReportsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">#</TableHead>
                         <TableHead>Action</TableHead>
                         <TableHead className="text-right">Count</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.tables.auditByAction.map((r) => (
+                      {data.tables.auditByAction.map((r, index) => (
                         <TableRow key={`${r.action}-${r.count}`}>
+                          <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                           <TableCell className="font-mono text-xs">{r.action}</TableCell>
                           <TableCell className="text-right tabular-nums">{r.count}</TableCell>
                         </TableRow>
@@ -586,13 +590,15 @@ export default function ComplianceReportsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Action</TableHead>
                       <TableHead className="text-right">Count</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(data.tables.auditHighRiskByAction.length ? data.tables.auditHighRiskByAction : []).map((r) => (
+                    {(data.tables.auditHighRiskByAction.length ? data.tables.auditHighRiskByAction : []).map((r, index) => (
                       <TableRow key={r.action}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell className="font-mono text-xs">{r.action}</TableCell>
                         <TableCell className="text-right tabular-nums">{r.count}</TableCell>
                       </TableRow>
@@ -614,13 +620,15 @@ export default function ComplianceReportsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">#</TableHead>
                         <TableHead>User</TableHead>
                         <TableHead className="text-right">Events</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.tables.topAuditActors.map((r) => (
+                      {data.tables.topAuditActors.map((r, index) => (
                         <TableRow key={r.userId}>
+                          <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                           <TableCell>{r.displayName}</TableCell>
                           <TableCell className="text-right tabular-nums">{r.eventCount}</TableCell>
                         </TableRow>
@@ -638,13 +646,15 @@ export default function ComplianceReportsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">#</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Versions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.tables.sopVersionStatusMix.map((r) => (
+                      {data.tables.sopVersionStatusMix.map((r, index) => (
                         <TableRow key={r.status}>
+                          <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                           <TableCell className="capitalize">{r.status.replace(/_/g, " ")}</TableCell>
                           <TableCell className="text-right tabular-nums">{r.count}</TableCell>
                         </TableRow>

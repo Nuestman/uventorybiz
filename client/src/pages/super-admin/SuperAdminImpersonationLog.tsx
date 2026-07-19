@@ -157,6 +157,7 @@ export default function SuperAdminImpersonationLog() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">#</TableHead>
                 <TableHead className="whitespace-nowrap">Time (UTC)</TableHead>
                 <TableHead>Action</TableHead>
                 <TableHead>Platform operator</TableHead>
@@ -170,8 +171,9 @@ export default function SuperAdminImpersonationLog() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => (
+              {rows.map((row, index) => (
                 <TableRow key={row.id}>
+                  <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                   <TableCell className="text-slate-600 text-sm whitespace-nowrap align-top">
                     {row.createdAt ? format(new Date(row.createdAt), "yyyy-MM-dd HH:mm:ss") : "—"}
                   </TableCell>
@@ -290,6 +292,7 @@ export default function SuperAdminImpersonationLog() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">#</TableHead>
                         <TableHead className="whitespace-nowrap">Time (UTC)</TableHead>
                         <TableHead>Action</TableHead>
                         <TableHead>Resource</TableHead>
@@ -298,8 +301,9 @@ export default function SuperAdminImpersonationLog() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sessionCrudQuery.data.auditLogs.map((log) => (
+                      {sessionCrudQuery.data.auditLogs.map((log, index) => (
                         <TableRow key={log.id}>
+                          <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                           <TableCell className="text-slate-600 text-sm whitespace-nowrap align-top">
                             {log.createdAt ? format(new Date(log.createdAt), "yyyy-MM-dd HH:mm:ss") : "—"}
                           </TableCell>

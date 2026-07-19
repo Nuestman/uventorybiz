@@ -1451,6 +1451,7 @@ export default function IncidentReportsPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-12">#</TableHead>
                           <TableHead>Location</TableHead>
                           <TableHead className="text-right">Total</TableHead>
                           <TableHead className="text-right">Detained</TableHead>
@@ -1461,8 +1462,9 @@ export default function IncidentReportsPage() {
                         {[...(data.tables.topCareLocations ?? [])]
                           .sort((a, b) => b.detainedCount - a.detainedCount)
                           .slice(0, 15)
-                          .map((r, i) => (
-                            <TableRow key={`${r.locationId ?? "loc"}-${i}`}>
+                          .map((r, index) => (
+                            <TableRow key={`${r.locationId ?? "loc"}-${index}`}>
+                              <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                               <TableCell className="max-w-[200px] truncate" title={r.locationName}>
                                 {r.locationName}
                               </TableCell>
@@ -1522,6 +1524,7 @@ export default function IncidentReportsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>
                         <button type="button" className="font-medium hover:underline" onClick={() => toggleCompanySort("companyName")}>
                           Company{sortIndicator("companyName")}
@@ -1555,13 +1558,14 @@ export default function IncidentReportsPage() {
                   <TableBody>
                     {sortedByCompany.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-muted-foreground text-center py-8">
+                        <TableCell colSpan={9} className="text-muted-foreground text-center py-8">
                           No incidents in this window for the selected filters.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      sortedByCompany.map((r) => (
+                      sortedByCompany.map((r, index) => (
                         <TableRow key={`${r.companyId ?? "unk"}-${r.companyName}`}>
+                          <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                           <TableCell className="font-medium">{r.companyName}</TableCell>
                           <TableCell>{r.companyType ?? "—"}</TableCell>
                           <TableCell className="text-right tabular-nums">{r.incidentCount}</TableCell>
@@ -1586,14 +1590,16 @@ export default function IncidentReportsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Company</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead className="text-right">Count</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(data.tables.companyByLocation ?? []).map((r, i) => (
-                      <TableRow key={`${r.companyId ?? "c"}-${r.locationId ?? "l"}-${i}`}>
+                    {(data.tables.companyByLocation ?? []).map((r, index) => (
+                      <TableRow key={`${r.companyId ?? "c"}-${r.locationId ?? "l"}-${index}`}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell>{r.companyName}</TableCell>
                         <TableCell>{r.locationName}</TableCell>
                         <TableCell className="text-right tabular-nums">{r.count}</TableCell>
@@ -1625,6 +1631,7 @@ export default function IncidentReportsPage() {
                   >
                     <TableHeader className="sticky top-0 z-[4] shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.12)]">
                       <TableRow className="hover:bg-transparent border-0">
+                        <TableHead className="w-12 !bg-[#142F5C] !text-white">#</TableHead>
                         <TableHead className="sticky left-0 top-0 z-[6] min-w-[108px] border-r border-white/15 !bg-[#142F5C] !text-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
                           Date
                         </TableHead>
@@ -1642,8 +1649,9 @@ export default function IncidentReportsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.tables.incidentsByDayByPost.rows.map((row) => (
+                      {data.tables.incidentsByDayByPost.rows.map((row, index) => (
                         <TableRow key={row.date}>
+                          <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                           <TableCell className="sticky left-0 z-[1] border-r border-border bg-background font-medium whitespace-nowrap shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
                             {formatMatrixDate(row.date)}
                           </TableCell>
@@ -1660,6 +1668,7 @@ export default function IncidentReportsPage() {
                     </TableBody>
                     <TableFooter className="!border-t !border-white/25 !bg-[#142F5C]">
                       <TableRow className="border-0 !bg-[#142F5C] hover:!bg-[#142F5C]">
+                        <TableCell className="bg-[#142F5C] text-white" />
                         <TableCell className="sticky left-0 z-[3] border-r border-white/20 bg-[#142F5C] text-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.12)]">
                           Total
                         </TableCell>
@@ -1686,14 +1695,16 @@ export default function IncidentReportsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Severity</TableHead>
                       <TableHead className="text-right">Count</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(data.tables.typeBySeverity ?? []).map((r, i) => (
-                      <TableRow key={`${r.incidentType}-${r.severity}-${i}`}>
+                    {(data.tables.typeBySeverity ?? []).map((r, index) => (
+                      <TableRow key={`${r.incidentType}-${r.severity}-${index}`}>
+                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                         <TableCell>{formatIncidentTypeLabel(r.incidentType)}</TableCell>
                         <TableCell>{formatIncidentSeverityLabel(r.severity)}</TableCell>
                         <TableCell className="text-right tabular-nums">{r.count}</TableCell>
@@ -1742,6 +1753,7 @@ export default function IncidentReportsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">#</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Severity</TableHead>
@@ -1754,8 +1766,9 @@ export default function IncidentReportsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.detail.rows.map((r) => (
+                      {data.detail.rows.map((r, index) => (
                         <TableRow key={r.incidentId}>
+                          <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
                           <TableCell className="whitespace-nowrap text-sm">
                             {format(parseISO(r.incidentDate), "yyyy-MM-dd HH:mm")}
                           </TableCell>

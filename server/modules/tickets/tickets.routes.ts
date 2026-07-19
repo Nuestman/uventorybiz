@@ -24,7 +24,8 @@ const ticketCreateBodySchema = z.object({
   priority: ticketPriorityZ.optional(),
   locationId: z.string().nullable().optional(),
   relatedIncidentId: z.string().nullable().optional(),
-  assetTag: z.string().max(255).nullable().optional(),
+  /** Canonical link; free-text assetTag is not accepted on write. */
+  assetId: z.string().nullable().optional(),
 });
 
 const ticketPatchBodySchema = z
@@ -37,7 +38,8 @@ const ticketPatchBodySchema = z
     assigneeUserId: z.string().nullable().optional(),
     locationId: z.string().nullable().optional(),
     relatedIncidentId: z.string().nullable().optional(),
-    assetTag: z.string().max(255).nullable().optional(),
+    /** Prefer assetId; free-text assetTag is ignored when assetId is sent. */
+    assetId: z.string().nullable().optional(),
   })
   .strict();
 
@@ -164,11 +166,24 @@ export function createTicketsRouter(deps: TicketsRoutesDeps): Router {
       scope: (req.query.scope as string) || undefined,
       status: (req.query.status as string) || undefined,
       categoryId: (req.query.categoryId as string) || undefined,
+      source: (req.query.source as string) || undefined,
       limit: req.query.limit != null ? Number(req.query.limit) : undefined,
       offset: req.query.offset != null ? Number(req.query.offset) : undefined,
     });
     if (!result.ok) {
       if (result.code === "FORBIDDEN") return sendError(res, 403, result.error);
+      if (result.code === "INVALID") return sendError(res, 400, result.error);
+      return sendError(res, 500, result.error);
+    }
+    res.json(result.data);
+  });
+
+  router.get("/tickets/active-in-category", authMiddleware, async (req: any, res) => {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return sendError(res, 400, "User has no tenant association");
+    const categoryId = typeof req.query.categoryId === "string" ? req.query.categoryId : "";
+    const result = await controller.listActiveInCategory(tenantId, categoryId);
+    if (!result.ok) {
       if (result.code === "INVALID") return sendError(res, 400, result.error);
       return sendError(res, 500, result.error);
     }
