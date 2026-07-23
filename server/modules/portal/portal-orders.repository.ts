@@ -17,7 +17,7 @@ import {
   type PortalOrderItem,
 } from "@shared/schema";
 import type { PortalOrderFulfillment, PortalOrderStatus, SupplierInvoiceStatus } from "@shared/portalOrders";
-import { SUPPLIER_VISIBLE_PO_STATUSES } from "@shared/portalOrders";
+import { DEFAULT_RETURN_WINDOW_DAYS, SUPPLIER_VISIBLE_PO_STATUSES } from "@shared/portalOrders";
 
 // --- Shop / products ---
 
@@ -244,6 +244,7 @@ export async function countOrdersNeedingAttention(tenantId: string) {
   const [invoiceCounts] = await db
     .select({
       submitted: sql<number>`count(*) filter (where ${supplierInvoices.status} = 'submitted')`.mapWith(Number),
+      pendingPayment: sql<number>`count(*) filter (where ${supplierInvoices.status} = 'accepted')`.mapWith(Number),
     })
     .from(supplierInvoices)
     .where(eq(supplierInvoices.tenantId, tenantId));
@@ -252,6 +253,7 @@ export async function countOrdersNeedingAttention(tenantId: string) {
     notReceivedOrders: orderCounts?.notReceived ?? 0,
     returnRequestedOrders: orderCounts?.returnRequested ?? 0,
     submittedInvoices: invoiceCounts?.submitted ?? 0,
+    pendingPaymentInvoices: invoiceCounts?.pendingPayment ?? 0,
   };
 }
 
@@ -263,6 +265,20 @@ export async function isReturnsEnabled(tenantId: string): Promise<boolean> {
     .where(eq(tenants.id, tenantId))
     .limit(1);
   return row?.returnsEnabled !== false;
+}
+
+/** Portal customer return window (days after receipt/completion). */
+export async function getReturnWindowDays(tenantId: string): Promise<number> {
+  const [row] = await db
+    .select({ returnWindowDays: tenants.returnWindowDays })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+  const raw = row?.returnWindowDays;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw >= 1) {
+    return Math.min(365, Math.floor(raw));
+  }
+  return DEFAULT_RETURN_WINDOW_DAYS;
 }
 
 /** Orders (all tenants) awaiting customer receipt whose grace window has passed — cron auto-complete. */
@@ -341,6 +357,83 @@ export async function getPurchaseOrderForSupplier(tenantId: string, supplierId: 
     .leftJoin(inventoryItems, eq(purchaseOrderItems.itemId, inventoryItems.id))
     .where(and(eq(purchaseOrderItems.tenantId, tenantId), eq(purchaseOrderItems.poId, poId)));
   return { po, items };
+}
+
+export async function updatePurchaseOrderForSupplier(
+  tenantId: string,
+  supplierId: string,
+  poId: string,
+  patch: {
+    status?: "ordered" | "shipped";
+    supplierConfirmedAt?: Date;
+    supplierConfirmedByPortalUserId?: string;
+    supplierShippedAt?: Date;
+    supplierShippedByPortalUserId?: string;
+  },
+) {
+  const [row] = await db
+    .update(purchaseOrders)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(
+      and(
+        eq(purchaseOrders.tenantId, tenantId),
+        eq(purchaseOrders.supplierId, supplierId),
+        eq(purchaseOrders.id, poId),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
+/** Sum of received line totals (qty received × unit cost); falls back to ordered totals if nothing received. */
+export function computeInvoicePrefillAmount(
+  items: Array<{ quantityOrdered: number; quantityReceived: number | null; unitCost: string; totalCost: string }>,
+  poTotalAmount: string,
+): string {
+  let cents = 0;
+  let anyReceived = false;
+  for (const item of items) {
+    const received = item.quantityReceived ?? 0;
+    if (received > 0) {
+      anyReceived = true;
+      const unit = Math.round(Number.parseFloat(item.unitCost || "0") * 100) || 0;
+      cents += unit * received;
+    }
+  }
+  if (anyReceived) return (cents / 100).toFixed(2);
+  return poTotalAmount;
+}
+
+export async function findActiveInvoiceForPo(tenantId: string, purchaseOrderId: string) {
+  const [row] = await db
+    .select()
+    .from(supplierInvoices)
+    .where(
+      and(
+        eq(supplierInvoices.tenantId, tenantId),
+        eq(supplierInvoices.purchaseOrderId, purchaseOrderId),
+        sql`${supplierInvoices.status} <> 'rejected'`,
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+export async function nextSupplierInvoiceNumber(tenantId: string, supplierId: string): Promise<string> {
+  const today = new Date();
+  const prefix = `INV-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(supplierInvoices)
+    .where(
+      and(
+        eq(supplierInvoices.tenantId, tenantId),
+        eq(supplierInvoices.supplierId, supplierId),
+        sql`${supplierInvoices.invoiceNumber} LIKE ${prefix + "-%"}`,
+      ),
+    );
+  const seq = (row?.count ?? 0) + 1;
+  return `${prefix}-${String(seq).padStart(3, "0")}`;
 }
 
 // --- Supplier invoices ---

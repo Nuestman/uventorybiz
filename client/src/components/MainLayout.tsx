@@ -341,7 +341,7 @@ function AppSidebar() {
   const { data: pendingAppointmentsCount = 0 } = usePendingPortalAppointmentRequestsCount(
     clinicalAccess && isFeatureOn("appointments"),
   );
-  // Portal orders/invoices awaiting staff action (pending, not received, submitted invoices).
+  // Portal orders/invoices awaiting staff action (pending, issues, invoices to review/pay).
   const { data: ordersAttention } = useQuery<{ total: number }>({
     queryKey: ["/api/orders/attention-count"],
     queryFn: getQueryFn<{ total: number }>({ on401: "throw" }),

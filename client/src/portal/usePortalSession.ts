@@ -36,6 +36,8 @@ export type PortalSessionPayload = {
     primaryColor: string | null;
     /** Whether the business accepts return requests on completed orders. */
     returnsEnabled?: boolean;
+    /** Days after receipt/completion during which return requests are allowed. */
+    returnWindowDays?: number;
   };
   tenantContact?: {
     email: string;

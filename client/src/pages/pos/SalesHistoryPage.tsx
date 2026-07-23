@@ -23,6 +23,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useTenantSettings } from "@/hooks/useTenantSettings";
 import MobileNav from "@/components/MobileNav";
+import {
+  formatPosPaymentMethod,
+  POS_PAYMENT_METHODS,
+  POS_PAYMENT_METHOD_LABELS,
+  type PosPaymentMethod,
+} from "@shared/posPayments";
 
 type SaleStatus = "draft" | "completed" | "voided" | "returned";
 
@@ -35,6 +41,7 @@ interface SalesListRow {
   completedAt: string | null;
   createdAt: string | null;
   customerId: string | null;
+  portalOrderId?: string | null;
   customerFirstName: string | null;
   customerLastName: string | null;
   locationName: string | null;
@@ -153,7 +160,7 @@ export default function SalesHistoryPage() {
   const [returnSale, setReturnSale] = useState<ReturnableSale | null>(null);
   const [returnQuantities, setReturnQuantities] = useState<Record<string, number>>({});
   const [returnReason, setReturnReason] = useState("");
-  const [returnRefundMethod, setReturnRefundMethod] = useState<"cash" | "card" | "other">("cash");
+  const [returnRefundMethod, setReturnRefundMethod] = useState<PosPaymentMethod>("cash");
 
   // POS redirects here with ?view=<saleId> after completing a sale so the
   // cashier lands on history with the receipt open, ready to print.
@@ -358,12 +365,24 @@ export default function SalesHistoryPage() {
                       </TableCell>
                       <TableCell className="font-medium whitespace-nowrap">
                         {row.receiptNumber ?? "—"}
+                        {row.portalOrderId ? (
+                          <Badge variant="outline" className="ml-2 text-[10px] uppercase tracking-wide">
+                            Portal
+                          </Badge>
+                        ) : null}
                       </TableCell>
                       <TableCell>{customerName ?? "Walk-in"}</TableCell>
                       <TableCell>{row.locationName ?? "—"}</TableCell>
                       <TableCell>{salesperson}</TableCell>
                       <TableCell className="text-right">{row.itemCount}</TableCell>
-                      <TableCell className="capitalize">{row.paymentMethods ?? "—"}</TableCell>
+                      <TableCell>
+                        {row.paymentMethods
+                          ? row.paymentMethods
+                              .split(", ")
+                              .map((m) => formatPosPaymentMethod(m))
+                              .join(", ")
+                          : "—"}
+                      </TableCell>
                       <TableCell className="text-right font-medium whitespace-nowrap">
                         {formatMoney(row.total, row.currencyCode)}
                       </TableCell>
@@ -612,15 +631,17 @@ export default function SalesHistoryPage() {
                   <Label>Refund method</Label>
                   <Select
                     value={returnRefundMethod}
-                    onValueChange={(v: "cash" | "card" | "other") => setReturnRefundMethod(v)}
+                    onValueChange={(v: PosPaymentMethod) => setReturnRefundMethod(v)}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="card">Card</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                      {POS_PAYMENT_METHODS.map((method) => (
+                        <SelectItem key={method} value={method}>
+                          {POS_PAYMENT_METHOD_LABELS[method]}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

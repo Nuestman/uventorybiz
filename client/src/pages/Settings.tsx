@@ -129,6 +129,7 @@ interface TenantSettings {
   primaryColor: string | null;
   faviconUrl: string | null;
   returnsEnabled: boolean;
+  returnWindowDays: number;
   pocTestingEnabled: boolean;
   businessCategory: string;
 }
@@ -156,6 +157,7 @@ export default function Settings() {
 
   const [openSaveConfirm, setOpenSaveConfirm] = useState(false);
   const [openRestoreConfirm, setOpenRestoreConfirm] = useState(false);
+  const [returnWindowDraft, setReturnWindowDraft] = useState("3");
   const [activeTab, setActiveTab] = useState<
     "branding" | "notifications" | "duties" | "features" | "portal" | "security"
   >("branding");
@@ -317,6 +319,11 @@ export default function Settings() {
     queryKey: ["/api/settings"],
     queryFn: getQueryFn<TenantSettings>({ on401: "throw" }),
   });
+
+  useEffect(() => {
+    if (!settings) return;
+    setReturnWindowDraft(String(settings.returnWindowDays ?? 3));
+  }, [settings]);
 
   const { data: duties = [], isLoading: dutiesLoading } = useQuery<any[]>({
     queryKey: ["/api/operational-duties"],
@@ -638,6 +645,27 @@ export default function Settings() {
     },
   });
 
+  const returnWindowMutation = useMutation({
+    mutationFn: async (days: number) => {
+      const res = await apiRequest("PATCH", "/api/settings", { returnWindowDays: days });
+      return res.json();
+    },
+    onSuccess: (data: TenantSettings) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({
+        title: "Return window updated",
+        description: `Portal customers can request returns within ${data.returnWindowDays} day${data.returnWindowDays === 1 ? "" : "s"} of receipt.`,
+      });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Failed to update return window",
+        description: err.message || "Could not update settings.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Standalone toggle — saved immediately, independent of the branding form/save flow.
   const pocTestingToggleMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
@@ -830,10 +858,11 @@ export default function Settings() {
               </CardTitle>
               <CardDescription>
                 When disabled, POS returns are blocked and portal customers cannot request returns
-                on completed orders.
+                on completed orders. The return window only applies to portal customer requests;
+                staff can still process POS refunds while returns are enabled.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium">Accept returns/refunds</p>
@@ -846,6 +875,58 @@ export default function Settings() {
                   disabled={!canEdit || returnsToggleMutation.isPending}
                   onCheckedChange={(checked) => returnsToggleMutation.mutate(checked)}
                 />
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="space-y-1">
+                  <Label htmlFor="return-window-days">Portal return window (days)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    How long after receipt (or completion) a customer may request a return.
+                    Default is 3 days.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="return-window-days"
+                    type="number"
+                    min={1}
+                    max={365}
+                    className="w-24"
+                    value={returnWindowDraft}
+                    disabled={!canEdit || settings.returnsEnabled === false || returnWindowMutation.isPending}
+                    onChange={(e) => setReturnWindowDraft(e.target.value)}
+                  />
+                  <span className="text-sm text-muted-foreground">days</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={
+                      !canEdit ||
+                      settings.returnsEnabled === false ||
+                      returnWindowMutation.isPending ||
+                      Math.floor(Number(returnWindowDraft)) === (settings.returnWindowDays ?? 3)
+                    }
+                    onClick={() => {
+                      const days = Math.floor(Number(returnWindowDraft));
+                      if (!Number.isFinite(days) || days < 1 || days > 365) {
+                        toast({
+                          title: "Invalid return window",
+                          description: "Enter a number between 1 and 365 days.",
+                          variant: "destructive",
+                        });
+                        setReturnWindowDraft(String(settings.returnWindowDays ?? 3));
+                        return;
+                      }
+                      returnWindowMutation.mutate(days);
+                    }}
+                  >
+                    {returnWindowMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Save
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

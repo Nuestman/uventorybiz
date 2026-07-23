@@ -33,7 +33,7 @@ export const updateSaleSchema = z.object({
 });
 
 export const paymentInputSchema = z.object({
-  method: z.enum(["cash", "card", "other"]),
+  method: z.enum(["cash", "card", "mobile_money", "credit", "other"]),
   amount: z.coerce.number().positive(),
 });
 

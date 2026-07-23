@@ -14,7 +14,7 @@ This guide covers concepts, admin setup, the daily cashier workflow, the API sur
 | **Shift** | A cash-drawer session on a register. A cashier opens a shift with an opening float, sells during it, and closes it with a counted closing float. Only one shift can be open per register at a time. |
 | **Sale** | A transaction. It starts as a `draft` (cart), and becomes `completed` when paid, `voided` if abandoned, or is created with status `returned` for refunds. |
 | **Sale line** | One item on a sale: item, quantity, unit price, tax rate, line total. |
-| **Payment** | One tender against a sale: `cash`, `card`, or `other`. A sale can have multiple payments (split tender). |
+| **Payment** | One tender against a sale: `cash`, `card`, `mobile_money`, `credit` (pay later), or `other`. A sale can have multiple payments (split tender). |
 | **Return** | A refund transaction linked to an original completed sale. Returned quantities go back into stock. |
 | **Receipt number** | Assigned when a sale completes, in the format `RCP-YYYYMMDD-0001` (per-tenant daily sequence). |
 
@@ -83,6 +83,9 @@ Cart behavior:
 
 After completion the POS redirects to **Sales History** (`/sales`) with the new receipt
 open in a dialog, ready to print via the browser. The Sales History page lists all POS
+sales **and portal online orders** (sales with `portal_order_id`, shown with a Portal badge).
+Portal orders create a sale and deduct stock when staff mark them ready for pickup / out for
+delivery — see [PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md](./PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md).
 sales (paginated, newest first) with receipt number, customer, store, salesperson, item
 count, payment methods, amount, status, and date. Row actions:
 
@@ -127,9 +130,12 @@ Rules enforced by the server:
   `tenants.returns_enabled`). When disabled, the Returns button is hidden and the
   endpoint rejects requests. The same toggle gates portal return requests
   (see `PORTAL_GUIDE.md` §5a).
+- Portal customer return *requests* are also limited by **`tenants.return_window_days`**
+  (default 3 days after receipt/completion). In-person POS refunds are **not** limited by that window.
 - Only **completed** sales can be returned.
 - Each item must appear on the original sale, and cumulative returns can never exceed the quantity originally sold (partial and multiple returns are tracked).
 - Refund pricing reuses the original unit price and tax rate.
+- Refund tender may be cash, card, mobile money, credit (pay later), or other.
 - The return is recorded as its own sale (status `returned`) with its own receipt number, linked to the original via `pos_returns`, and stock is restocked in the same transaction.
 
 ---
@@ -179,7 +185,7 @@ pos_sales          transactions (register, shift, location, cashier, optional cu
                    currency_code, receipt_number, completed_at/voided_at)
 pos_sale_lines     items on a sale (item, qty, unit_price, tax_rate, tax_amount, line_total,
                    barcode_snapshot)
-pos_payments       tenders (method: cash|card|other, amount)
+pos_payments       tenders (method: cash|card|mobile_money|credit|other, amount)
 pos_returns        links a return sale to its original sale (reason, created_by)
 ```
 
@@ -189,12 +195,12 @@ Money amounts are stored as strings for decimal precision; the tenant's `currenc
 
 ## 9. Current limitations / roadmap
 
-- **Returns UI** — returns work via the API but there is no till screen for them yet.
-- **Customer attachment** — sales accept an optional `customerId`, but the POS screen doesn't yet offer a customer picker.
+- **Customer attachment** — sales accept an optional `customerId`; the POS screen has a basic customer search/picker.
 - **Line price/tax edits at the till** — the UI charges the stock unit cost with the default tax rate; per-line overrides are supported by the API (`PATCH /pos/sales/:id`).
 - **Receipt printing** — uses the browser print dialog; no thermal-printer/ESC-POS integration.
 - **Discounts & promotions** — not yet modeled.
 - **Receipt numbering** — sequence is computed per day per tenant; under very high concurrency two simultaneous completions could collide (known trade-off documented in code).
+- **Credit (pay later)** — recorded as a tender method only; no separate AR / collections workflow yet.
 
 ---
 

@@ -1,5 +1,6 @@
 import type { IStorage } from "../../storage";
 import { isPocEligibleCategory } from "@shared/poc";
+import { DEFAULT_RETURN_WINDOW_DAYS } from "@shared/portalOrders";
 
 export interface TenantSettingsResponse {
   tenantId: string;
@@ -11,6 +12,11 @@ export interface TenantSettingsResponse {
   faviconUrl: string | null;
   /** Whether the business accepts returns/refunds (POS returns + portal return requests). */
   returnsEnabled: boolean;
+  /**
+   * Days after receipt/completion during which a portal customer may request a return.
+   * POS staff returns are not gated by this window.
+   */
+  returnWindowDays: number;
   /** Whether the business offers point-of-care lab testing (instant tests). */
   pocTestingEnabled: boolean;
   /** Business category key (pharmacy, laboratory, retail, …). */
@@ -24,6 +30,7 @@ export type TenantSettingsUpdate = Partial<{
   primaryColor: string | null;
   faviconUrl: string | null;
   returnsEnabled: boolean;
+  returnWindowDays: number;
   pocTestingEnabled: boolean;
 }>;
 
@@ -40,12 +47,18 @@ function toResponse(tenant: {
   primaryColor?: string | null;
   faviconUrl?: string | null;
   returnsEnabled?: boolean | null;
+  returnWindowDays?: number | null;
   pocTestingEnabled?: boolean | null;
   businessCategory?: string | null;
 }): TenantSettingsResponse {
   const businessCategory = tenant.businessCategory || "other";
   // POC is only meaningful for pharmacy/lab categories — never report enabled otherwise.
   const pocEligible = isPocEligibleCategory(businessCategory);
+  const rawWindow = tenant.returnWindowDays;
+  const returnWindowDays =
+    typeof rawWindow === "number" && Number.isFinite(rawWindow)
+      ? Math.min(365, Math.max(1, Math.floor(rawWindow)))
+      : DEFAULT_RETURN_WINDOW_DAYS;
   return {
     tenantId: tenant.id,
     tenantName: tenant.name,
@@ -55,6 +68,7 @@ function toResponse(tenant: {
     primaryColor: tenant.primaryColor ?? null,
     faviconUrl: tenant.faviconUrl ?? null,
     returnsEnabled: tenant.returnsEnabled !== false,
+    returnWindowDays,
     pocTestingEnabled: pocEligible && tenant.pocTestingEnabled === true,
     businessCategory,
   };
@@ -109,6 +123,17 @@ export function createSettingsController(storage: IStorage) {
         if (body.primaryColor !== undefined) updatePayload.primaryColor = body.primaryColor;
         if (body.faviconUrl !== undefined) updatePayload.faviconUrl = body.faviconUrl;
         if (typeof body.returnsEnabled === "boolean") updatePayload.returnsEnabled = body.returnsEnabled;
+        if (typeof body.returnWindowDays === "number" && Number.isFinite(body.returnWindowDays)) {
+          const days = Math.floor(body.returnWindowDays);
+          if (days < 1 || days > 365) {
+            return {
+              ok: false,
+              error: "Return window must be between 1 and 365 days",
+              code: "INVALID_RETURN_WINDOW",
+            };
+          }
+          updatePayload.returnWindowDays = days;
+        }
         if (typeof body.pocTestingEnabled === "boolean") updatePayload.pocTestingEnabled = body.pocTestingEnabled;
         const updated = await storage.updateTenant(tenantId, updatePayload as any);
         return { ok: true, data: toResponse(updated) };

@@ -148,6 +148,7 @@ export async function createSale(
     locationId: string;
     cashierUserId: string;
     customerId?: string | null;
+    portalOrderId?: string | null;
     currencyCode: string;
     notes?: string;
   },
@@ -161,6 +162,7 @@ export async function createSale(
       locationId: data.locationId,
       cashierUserId: data.cashierUserId,
       customerId: data.customerId ?? null,
+      portalOrderId: data.portalOrderId ?? null,
       currencyCode: data.currencyCode,
       notes: data.notes ?? null,
       status: "draft",
@@ -287,6 +289,7 @@ export async function listSales(tenantId: string, opts: ListSalesOptions) {
       completedAt: posSales.completedAt,
       createdAt: posSales.createdAt,
       customerId: posSales.customerId,
+      portalOrderId: posSales.portalOrderId,
       customerFirstName: customers.firstName,
       customerLastName: customers.lastName,
       locationName: careLocations.locationName,

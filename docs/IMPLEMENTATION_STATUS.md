@@ -1,8 +1,8 @@
 # uventorybiz — Implementation Status
 
 **Product:** Multi-tenant B2B business management (inventory + POS)  
-**Version:** `1.2.0`  
-**Last updated:** July 19, 2026  
+**Version:** `1.3.0`  
+**Last updated:** July 23, 2026  
 **Repo:** https://github.com/Nuestman/uventorybiz
 
 > Clinical MineAid surfaces live under [`purged/`](../purged/README.md). Historical MineAid release notes: [`purged/docs/CHANGELOG_MINEAID.md`](../purged/docs/CHANGELOG_MINEAID.md).
@@ -24,15 +24,18 @@
 | MineAid clinical docs → `purged/docs/` | Done (Jul 2026) |
 | Staff/Super Admin breadcrumbs + list pagination | Done (`1.2.0`) |
 | Portal-centric messaging restore (no patient bridge) | Done (`1.2.0`) |
+| Portal→POS sales + PO confirm/ship + exceptions + VHC | Done (`1.3.0`, `0026`) |
+| Portal return window + Mobile Money / Credit tenders | Done (`1.3.0`, `0027`) |
 
 ## Current surface
 
 ### Keep (live)
-- **Inventory Management** — per-location stock, **product catalog**, transfers/requisitions, purchase orders (catalog lines, receive store or fleet, reverse receipt), suppliers, categories, alerts
+- **Inventory Management** — per-location stock, **product catalog**, transfers/requisitions, purchase orders (catalog lines, receive store or fleet, reverse receipt), suppliers, categories (incl. **Vehicles / VHC**), alerts
 - **Business Assets** — tagged register (`/assets`); vehicles ↔ fleet stock locations; vehicle kind (commute / mobile store); stationed-at home store
 - **Admin — Store Locations** — fixed-site stores (`care_locations`; business copy)
-- Point of Sale (registers can bind to store or fleet location)
-- Portal orders / supplier invoices / **system-issue support tickets**
+- Point of Sale (registers can bind to store or fleet location; tenders: cash, card, mobile money, credit, other)
+- Portal orders as POS sales (stock at ready/out) / supplier Confirm→Ship→invoice / **Exceptions** queue / **system-issue support tickets**
+- Returns policy — on/off toggle + configurable portal return window (days)
 - Operations (appointments, incidents, duties, tickets with asset picker + duplicate-category prompt)
 - ShiftOver, Fleet (`/assets/fleet/*`), POC Laboratory (instant tests), Employee Wellbeing
 - Auth, tenancy, admin, notifications, SOP, non-clinical reports
@@ -47,7 +50,7 @@
 
 ## Database
 
-- Drizzle journal through **`0025_portal_ticket_attachments`**
+- Drizzle journal through **`0027_return_window_and_pos_payments`**
 - Seeds: `npm run db:seed`, demo: `npm run db:seed:demo`
 - Guide: [DRIZZLE_MIGRATIONS.md](./DRIZZLE_MIGRATIONS.md)
 
@@ -72,6 +75,7 @@ Details: [MOBILE_STORE_AND_FLEET_INVENTORY.md](./MOBILE_STORE_AND_FLEET_INVENTOR
 |-----|-----|
 | [CHANGELOG.md](./CHANGELOG.md) | Release notes |
 | [VERSION.md](./VERSION.md) | Semver |
+| [PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md](./PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md) | Portal sales / PO / exceptions (implemented) |
 | [BUSINESS_ASSETS_MANAGEMENT.md](./BUSINESS_ASSETS_MANAGEMENT.md) | Assets register |
 | [MOBILE_STORE_AND_FLEET_INVENTORY.md](./MOBILE_STORE_AND_FLEET_INVENTORY.md) | Fleet ↔ inventory |
 | [NEXT_DEV_SESSION.md](./NEXT_DEV_SESSION.md) | Resume checklist |

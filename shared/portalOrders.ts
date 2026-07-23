@@ -37,6 +37,12 @@ export const PORTAL_ORDER_STATUS_LABELS: Record<PortalOrderStatus, string> = {
  */
 export const ORDER_RECEIPT_GRACE_DAYS = 3;
 
+/**
+ * Default days after receipt/completion during which a portal customer may request a return.
+ * Overridable per tenant via `tenants.return_window_days`.
+ */
+export const DEFAULT_RETURN_WINDOW_DAYS = 3;
+
 /** Statuses from which the customer can confirm receipt or report the order as not received. */
 export const CUSTOMER_RECEIPT_STATUSES: PortalOrderStatus[] = ["ready_for_pickup", "out_for_delivery"];
 
@@ -67,7 +73,7 @@ export function allowedOrderTransitions(
         : ["out_for_delivery", "completed", "cancelled"];
     case "completed":
       // Customers request returns from the portal; staff can record one for phone-in requests.
-      // Gated by the tenant's returns_enabled setting (server-enforced).
+      // Gated by the tenant's returns_enabled setting and return_window_days (server-enforced).
       return ["return_requested"];
     case "return_requested":
       // Staff process the refund (POS return against the receipt), then mark returned —
@@ -96,6 +102,43 @@ export function orderGraceEndsAt(readyAt: Date | string | null | undefined): Dat
   return new Date(start.getTime() + ORDER_RECEIPT_GRACE_DAYS * 24 * 60 * 60 * 1000);
 }
 
+/**
+ * Start of the return window: when the customer confirmed receipt, else when the order completed.
+ */
+export function orderReturnWindowStart(
+  receiptConfirmedAt: Date | string | null | undefined,
+  completedAt: Date | string | null | undefined,
+): Date | null {
+  const raw = receiptConfirmedAt ?? completedAt;
+  if (!raw) return null;
+  const start = typeof raw === "string" ? new Date(raw) : raw;
+  if (Number.isNaN(start.getTime())) return null;
+  return start;
+}
+
+/** Deadline for a portal customer return request, or null if the order has no completion/receipt timestamp. */
+export function orderReturnDeadline(
+  receiptConfirmedAt: Date | string | null | undefined,
+  completedAt: Date | string | null | undefined,
+  windowDays: number = DEFAULT_RETURN_WINDOW_DAYS,
+): Date | null {
+  const start = orderReturnWindowStart(receiptConfirmedAt, completedAt);
+  if (!start) return null;
+  const days = Number.isFinite(windowDays) ? Math.max(0, Math.floor(windowDays)) : DEFAULT_RETURN_WINDOW_DAYS;
+  return new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+export function isWithinReturnWindow(
+  receiptConfirmedAt: Date | string | null | undefined,
+  completedAt: Date | string | null | undefined,
+  windowDays: number = DEFAULT_RETURN_WINDOW_DAYS,
+  now: Date = new Date(),
+): boolean {
+  const deadline = orderReturnDeadline(receiptConfirmedAt, completedAt, windowDays);
+  if (!deadline) return false;
+  return now.getTime() <= deadline.getTime();
+}
+
 export const SUPPLIER_INVOICE_STATUSES = ["submitted", "accepted", "rejected", "paid"] as const;
 
 export type SupplierInvoiceStatus = (typeof SUPPLIER_INVOICE_STATUSES)[number];
@@ -111,6 +154,20 @@ export const SUPPLIER_INVOICE_STATUS_LABELS: Record<SupplierInvoiceStatus, strin
 export const SUPPLIER_VISIBLE_PO_STATUSES = [
   "approved",
   "ordered",
+  "shipped",
   "partially_received",
   "completed",
 ] as const;
+
+export type SupplierVisiblePoStatus = (typeof SUPPLIER_VISIBLE_PO_STATUSES)[number];
+
+export const PURCHASE_ORDER_STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  pending_approval: "Pending approval",
+  approved: "Awaiting supplier confirmation",
+  ordered: "Confirmed by supplier",
+  shipped: "Shipped",
+  partially_received: "Partially received",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};

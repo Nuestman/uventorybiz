@@ -1,9 +1,9 @@
 # uventorybiz — Documentation
 
-**Package version:** 1.2.0 (see repository root `package.json`)  
+**Package version:** 1.3.0 (see repository root `package.json`)  
 **Changelog:** [CHANGELOG.md](./CHANGELOG.md)  
-**Status:** `1.2.0` — breadcrumbs, list pagination, portal orders UX, portal-centric messaging  
-**Last documentation review:** July 19, 2026
+**Status:** `1.3.0` — portal→POS sales, PO confirm/ship/invoice, exceptions, return window, Mobile Money / Credit  
+**Last documentation review:** July 23, 2026
 
 ## Start here
 
@@ -27,10 +27,12 @@
 | [INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md](./INVENTORY_TRANSFERS_AND_ISSUES_PLAN.md) | Design plan (catalog / PO / transfers) |
 | [BUSINESS_ASSETS_MANAGEMENT.md](./BUSINESS_ASSETS_MANAGEMENT.md) | Business assets register (tags, vehicles, ticketing) |
 | [MOBILE_STORE_AND_FLEET_INVENTORY.md](./MOBILE_STORE_AND_FLEET_INVENTORY.md) | Mobile store vs commute fleet, transfers, PO, POS |
+| [PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md](./PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md) | Implemented: portal→sales stock, PO confirm/ship/invoice, exceptions, VHC |
 
 ## Other guides
 
 - [RBAC.md](./RBAC.md) — roles and access
+- [TENANT_SETTINGS_AND_BRANDING.md](./TENANT_SETTINGS_AND_BRANDING.md) — currency, branding, returns policy
 - [MESSAGING_MODULE_PLAN.md](./MESSAGING_MODULE_PLAN.md) — secure messaging (portal + staff)
 - [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) / [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md)
 - [LOCAL_DEVELOPMENT_SETUP.md](./LOCAL_DEVELOPMENT_SETUP.md)

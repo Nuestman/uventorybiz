@@ -257,6 +257,9 @@ After baselining dev/prod, only run **new** `drizzle/` migrations plus `db:seed`
 | `0000_patient_id_function` | Custom — PostgreSQL function |
 | `0001_initial_schema` | Generated from `shared/schema.ts` at Drizzle adoption |
 | `0002_schema_migration_demos` | Example incremental migration — demo table workflow |
+| … | See `drizzle/meta/_journal.json` for the full chain |
+| `0026_portal_sales_po_exceptions` | Portal sale link, `shipped` PO status, `fulfillment_exceptions` |
+| `0027_return_window_and_pos_payments` | `tenants.return_window_days`; POS `mobile_money` / `credit` |
 
 ### Worked example (`schema_migration_demos`)
 

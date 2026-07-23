@@ -66,7 +66,7 @@ interface PurchaseOrder {
   expectedDelivery?: string;
   actualDelivery?: string;
   actualDeliveryDate?: string;
-  status: 'draft' | 'pending_approval' | 'approved' | 'ordered' | 'partially_received' | 'completed' | 'cancelled';
+  status: 'draft' | 'pending_approval' | 'approved' | 'ordered' | 'shipped' | 'partially_received' | 'completed' | 'cancelled';
   totalAmount: string;
   notes?: string;
   createdAt: string;
@@ -727,6 +727,7 @@ export default function PurchaseOrders() {
       case 'pending_approval': return <Clock className="h-4 w-4" />;
       case 'approved': return <CheckCircle className="h-4 w-4" />;
       case 'ordered': return <Truck className="h-4 w-4" />;
+      case 'shipped': return <Truck className="h-4 w-4" />;
       case 'partially_received': return <Package className="h-4 w-4" />;
       case 'completed': return <CheckCircle className="h-4 w-4" />;
       case 'cancelled': return <AlertTriangle className="h-4 w-4" />;
@@ -740,6 +741,7 @@ export default function PurchaseOrders() {
       case 'pending_approval': return 'default';
       case 'approved': return 'default';
       case 'ordered': return 'default';
+      case 'shipped': return 'secondary';
       case 'partially_received': return 'default';
       case 'completed': return 'default';
       case 'cancelled': return 'destructive';
@@ -909,7 +911,7 @@ export default function PurchaseOrders() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
-              {purchaseOrders.filter(po => ['pending_approval', 'approved', 'ordered', 'partially_received'].includes(po.status)).length}
+              {purchaseOrders.filter(po => ['pending_approval', 'approved', 'ordered', 'shipped', 'partially_received'].includes(po.status)).length}
             </div>
           </CardContent>
         </Card>
@@ -957,8 +959,9 @@ export default function PurchaseOrders() {
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="draft">Draft</SelectItem>
             <SelectItem value="pending_approval">Pending Approval</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="ordered">Ordered</SelectItem>
+            <SelectItem value="approved">Awaiting supplier confirmation</SelectItem>
+            <SelectItem value="ordered">Confirmed by supplier</SelectItem>
+            <SelectItem value="shipped">Shipped</SelectItem>
             <SelectItem value="partially_received">Partially Received</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -1039,7 +1042,7 @@ export default function PurchaseOrders() {
                             <CheckCircle className="mr-2 h-4 w-4" />
                             Change Status
                           </DropdownMenuItem>
-                          {['approved', 'ordered', 'partially_received'].includes(po.status) && (
+                          {['shipped', 'partially_received'].includes(po.status) && (
                             <DropdownMenuItem onClick={() => handleOpenReceive(po)} data-testid={`button-receive-${po.id}`}>
                               <Package className="mr-2 h-4 w-4" />
                               Receive Goods
@@ -1538,8 +1541,9 @@ export default function PurchaseOrders() {
                   <SelectContent>
                     <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="ordered">Ordered</SelectItem>
+                    <SelectItem value="approved">Awaiting supplier confirmation</SelectItem>
+                    <SelectItem value="ordered">Confirmed by supplier</SelectItem>
+                    <SelectItem value="shipped">Shipped</SelectItem>
                     <SelectItem value="partially_received">Partially Received</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>

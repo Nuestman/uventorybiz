@@ -28,6 +28,7 @@ import {
   updatePortalNotificationPreferencesForUser,
 } from "./portal-notification-preferences.service";
 import { PORTAL_NOTIFICATION_CHANNELS, PORTAL_NOTIFICATION_PREFERENCE_KEYS } from "@shared/portalNotificationPreferences";
+import { DEFAULT_RETURN_WINDOW_DAYS } from "@shared/portalOrders";
 import {
   patientCancelAppointment,
   patientConfirmAppointment,
@@ -40,6 +41,7 @@ import { buildReleaseNotesStatus, getCurrentAppVersion } from "../release-notes/
 import {
   cancelMyOrder,
   confirmOrderReceipt,
+  confirmSupplierPurchaseOrder,
   createPortalOrder,
   getSupplierPurchaseOrder,
   listMyOrders,
@@ -49,6 +51,7 @@ import {
   listSupplierPurchaseOrders,
   reportOrderNotReceived,
   requestOrderReturn,
+  shipSupplierPurchaseOrder,
   submitSupplierInvoice,
 } from "./portal-orders.service";
 import { isReturnsEnabled } from "./portal-orders.repository";
@@ -593,6 +596,10 @@ export function createPortalRouter(deps: PortalRoutesDeps): Router {
         logoUrl: ctx.tenant.logoUrl,
         primaryColor: ctx.tenant.primaryColor,
         returnsEnabled: ctx.tenant.returnsEnabled !== false,
+        returnWindowDays:
+          typeof ctx.tenant.returnWindowDays === "number" && ctx.tenant.returnWindowDays >= 1
+            ? Math.min(365, Math.floor(ctx.tenant.returnWindowDays))
+            : DEFAULT_RETURN_WINDOW_DAYS,
       },
       supportEmail: ctx.settings?.supportEmail ?? ctx.tenant.contactEmail,
       supportPhone: ctx.tenant.contactPhone ?? null,
@@ -1432,8 +1439,9 @@ export function createPortalRouter(deps: PortalRoutesDeps): Router {
   // --- Supplier purchase orders + invoices ---
 
   const portalSupplierInvoiceSchema = z.object({
-    purchaseOrderId: z.string().min(1).optional().nullable(),
-    invoiceNumber: z.string().min(1).max(64),
+    purchaseOrderId: z.string().min(1),
+    /** Optional; server always generates the canonical number. */
+    invoiceNumber: z.string().max(64).optional().nullable(),
     amount: z.union([z.string().min(1), z.number()]).transform((v) => String(v)),
     /** ISO date YYYY-MM-DD */
     invoiceDate: z
@@ -1456,6 +1464,44 @@ export function createPortalRouter(deps: PortalRoutesDeps): Router {
     res.json(result);
   });
 
+  router.post(
+    "/portal/supplier/purchase-orders/:id/confirm",
+    requirePortalSupplierAuth,
+    async (req: any, res) => {
+      const p = req.portal!;
+      const result = await confirmSupplierPurchaseOrder({
+        tenantId: p.tenantId,
+        supplierId: p.supplierId!,
+        portalUserId: p.portalUserId,
+        poId: req.params.id,
+      });
+      if (!result.ok) {
+        const code = result.code === "NOT_FOUND" ? 404 : result.code === "INVALID_STATE" ? 409 : 400;
+        return sendError(res, code, result.error);
+      }
+      res.json(result.data);
+    },
+  );
+
+  router.post(
+    "/portal/supplier/purchase-orders/:id/ship",
+    requirePortalSupplierAuth,
+    async (req: any, res) => {
+      const p = req.portal!;
+      const result = await shipSupplierPurchaseOrder({
+        tenantId: p.tenantId,
+        supplierId: p.supplierId!,
+        portalUserId: p.portalUserId,
+        poId: req.params.id,
+      });
+      if (!result.ok) {
+        const code = result.code === "NOT_FOUND" ? 404 : result.code === "INVALID_STATE" ? 409 : 400;
+        return sendError(res, code, result.error);
+      }
+      res.json(result.data);
+    },
+  );
+
   router.get("/portal/supplier/invoices", requirePortalSupplierAuth, async (req: any, res) => {
     const p = req.portal!;
     res.json(await listSupplierInvoices(p.tenantId, p.supplierId!));
@@ -1474,14 +1520,17 @@ export function createPortalRouter(deps: PortalRoutesDeps): Router {
         supplierId: p.supplierId!,
         portalUserId: p.portalUserId,
         input: {
-          purchaseOrderId: body.purchaseOrderId ?? null,
+          purchaseOrderId: body.purchaseOrderId,
           invoiceNumber: body.invoiceNumber,
           amount: body.amount,
           invoiceDate: body.invoiceDate ?? null,
           notes: body.notes ?? null,
         },
       });
-      if (!result.ok) return sendError(res, 400, result.error);
+      if (!result.ok) {
+        const code = result.code === "CONFLICT" || result.code === "INVALID_STATE" ? 409 : 400;
+        return sendError(res, code, result.error);
+      }
       await repo.insertPortalAudit({
         tenantId: p.tenantId,
         portalUserId: p.portalUserId,

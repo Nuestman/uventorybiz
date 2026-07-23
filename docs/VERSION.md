@@ -1,9 +1,9 @@
 # uventorybiz — Version Information
 
-## Current package version: 1.2.0
+## Current package version: 1.3.0
 
 **Product:** uventorybiz — multi-tenant B2B inventory + POS  
-**Updated:** July 19, 2026  
+**Updated:** July 23, 2026  
 **GitHub:** https://github.com/Nuestman/uventorybiz
 
 See [CHANGELOG.md](./CHANGELOG.md) for release notes.
@@ -12,7 +12,15 @@ See [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
 ## Version History
 
-### Version 1.2.0 (current package)
+### Version 1.3.0 (current package)
+
+- **Release type:** Minor — portal→POS sales, supplier PO/invoice lifecycle, fulfillment exceptions, return window, POS tenders
+- **Date:** 2026-07-23
+- **Highlights:** Portal orders create POS sales + deduct stock at ready/out; supplier Confirm → Ship → receive → invoice; staff Exceptions queue; Vehicles (VHC); portal return window (default 3 days); Mobile Money + Credit (Pay Later)
+- **Schema:** `drizzle/0026_portal_sales_po_exceptions`, `drizzle/0027_return_window_and_pos_payments`
+- **Docs:** [PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md](./PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md), [PORTAL_GUIDE.md](./PORTAL_GUIDE.md), [POS_GUIDE.md](./POS_GUIDE.md)
+
+### Version 1.2.0
 
 - **Release type:** Minor — navigation breadcrumbs, list pagination, portal orders UX, portal-centric messaging
 - **Date:** 2026-07-19

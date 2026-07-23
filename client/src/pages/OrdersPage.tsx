@@ -50,7 +50,22 @@ type OrdersAttentionCounts = {
   notReceivedOrders: number;
   returnRequestedOrders: number;
   submittedInvoices: number;
+  pendingPaymentInvoices?: number;
+  openExceptions?: number;
   total: number;
+};
+
+type ExceptionRow = {
+  exception: {
+    id: string;
+    kind: "order_not_received" | "order_return" | "invoice_dispute";
+    status: "open" | "resolved";
+    notes: string | null;
+    createdAt: string | null;
+  };
+  orderNumber: string | null;
+  orderStatus: string | null;
+  invoiceNumber: string | null;
 };
 
 type OrderItem = {
@@ -186,6 +201,12 @@ export default function OrdersPage() {
     refetchInterval: 30_000,
   });
 
+  const { data: exceptions = [], isLoading: exceptionsLoading } = useQuery<ExceptionRow[]>({
+    queryKey: ["/api/orders/exceptions?status=open"],
+    queryFn: getQueryFn<ExceptionRow[]>({ on401: "throw" }),
+    refetchInterval: 30_000,
+  });
+
   // Same source as the sidebar badge — updates when orders/invoices are actioned.
   const { data: attention } = useQuery<OrdersAttentionCounts>({
     queryKey: ["/api/orders/attention-count"],
@@ -243,6 +264,30 @@ export default function OrdersPage() {
     },
     onError: (err: Error) => {
       toast({ title: "Could not update invoice", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const resolveExceptionMutation = useMutation({
+    mutationFn: async (params: {
+      exceptionId: string;
+      resolution:
+        | "restock_reverse_sale"
+        | "keep_sale_complete"
+        | "approve_return"
+        | "decline_return";
+    }) => {
+      const res = await apiRequest("POST", `/api/orders/exceptions/${params.exceptionId}/resolve`, {
+        resolution: params.resolution,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Exception resolved" });
+      queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith("/api/orders") });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders/attention-count"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Could not resolve exception", description: err.message, variant: "destructive" });
     },
   });
 
@@ -313,6 +358,9 @@ export default function OrdersPage() {
                 (attention?.submittedInvoices ?? 0) > 0
                   ? `${attention?.submittedInvoices} submitted invoice${attention?.submittedInvoices === 1 ? "" : "s"}`
                   : null,
+                (attention?.pendingPaymentInvoices ?? 0) > 0
+                  ? `${attention?.pendingPaymentInvoices} pending payment`
+                  : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -340,6 +388,14 @@ export default function OrdersPage() {
                 {returnRequestedCount} return{returnRequestedCount > 1 ? "s" : ""}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="exceptions">
+            Exceptions
+            {exceptions.length > 0 ? (
+              <Badge variant="destructive" className="ml-2">
+                {exceptions.length}
+              </Badge>
+            ) : null}
           </TabsTrigger>
           <TabsTrigger value="invoices">Supplier invoices</TabsTrigger>
         </TabsList>
@@ -447,6 +503,118 @@ export default function OrdersPage() {
                           >
                             Manage
                           </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="exceptions" className="space-y-4">
+          <Card>
+            <CardContent className="p-0 overflow-x-auto">
+              {exceptionsLoading ? (
+                <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading exceptions…
+                </div>
+              ) : exceptions.length === 0 ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  No open exceptions. Not-received reports and return requests appear here until resolved.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Kind</TableHead>
+                      <TableHead>Reference</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead>Opened</TableHead>
+                      <TableHead className="text-right">Resolve</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {exceptions.map((row) => (
+                      <TableRow key={row.exception.id}>
+                        <TableCell className="capitalize">
+                          {row.exception.kind.replace(/_/g, " ")}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {row.orderNumber ?? row.invoiceNumber ?? "—"}
+                          {row.orderStatus ? (
+                            <span className="text-xs text-muted-foreground ml-1">({row.orderStatus})</span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
+                          {row.exception.notes ?? "—"}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {row.exception.createdAt
+                            ? new Date(row.exception.createdAt).toLocaleString()
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-right space-x-2 whitespace-nowrap">
+                          {row.exception.kind === "order_not_received" ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={resolveExceptionMutation.isPending}
+                                onClick={() =>
+                                  resolveExceptionMutation.mutate({
+                                    exceptionId: row.exception.id,
+                                    resolution: "restock_reverse_sale",
+                                  })
+                                }
+                              >
+                                Restock
+                              </Button>
+                              <Button
+                                size="sm"
+                                disabled={resolveExceptionMutation.isPending}
+                                onClick={() =>
+                                  resolveExceptionMutation.mutate({
+                                    exceptionId: row.exception.id,
+                                    resolution: "keep_sale_complete",
+                                  })
+                                }
+                              >
+                                Keep sale / complete
+                              </Button>
+                            </>
+                          ) : null}
+                          {row.exception.kind === "order_return" ? (
+                            <>
+                              <Button
+                                size="sm"
+                                disabled={resolveExceptionMutation.isPending}
+                                onClick={() =>
+                                  resolveExceptionMutation.mutate({
+                                    exceptionId: row.exception.id,
+                                    resolution: "approve_return",
+                                  })
+                                }
+                              >
+                                Approve return
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={resolveExceptionMutation.isPending}
+                                onClick={() =>
+                                  resolveExceptionMutation.mutate({
+                                    exceptionId: row.exception.id,
+                                    resolution: "decline_return",
+                                  })
+                                }
+                              >
+                                Decline
+                              </Button>
+                            </>
+                          ) : null}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -585,9 +753,9 @@ export default function OrdersPage() {
                   {detailOrder.order.returnRequestedAt
                     ? ` on ${new Date(detailOrder.order.returnRequestedAt).toLocaleString()}`
                     : ""}
-                  {detailOrder.order.returnReason ? `: "${detailOrder.order.returnReason}"` : "."} Process
-                  the refund through the POS (look up the receipt under Returns), then mark this order
-                  Returned — or move it back to Completed to decline.
+                  {detailOrder.order.returnReason ? `: "${detailOrder.order.returnReason}"` : "."} Approving
+                  the return from Exceptions (or marking Returned here) restocks inventory automatically —
+                  or move it back to Completed to decline.
                 </p>
               ) : null}
 

@@ -7,6 +7,7 @@ import {
   CUSTOMER_RECEIPT_STATUSES,
   ORDER_RECEIPT_GRACE_DAYS,
   orderGraceEndsAt,
+  isWithinReturnWindow,
   PORTAL_ORDER_STATUS_LABELS,
   type PortalOrderFulfillment,
   type PortalOrderStatus,
@@ -14,6 +15,8 @@ import {
 } from "@shared/portalOrders";
 import * as repo from "./portal-orders.repository";
 import * as portalRepo from "./portal.repository";
+import * as portalSale from "./portal-order-sale.service";
+import * as exceptions from "./fulfillment-exceptions.service";
 import { insertPortalNotification } from "./portal-notifications.repository";
 import { isPortalNotificationEnabledForUser } from "./portal-notification-preferences.service";
 
@@ -244,18 +247,25 @@ export async function reportOrderNotReceived(params: {
     notReceivedReason: reason,
   });
 
+  await exceptions.openException({
+    tenantId: params.tenantId,
+    kind: "order_not_received",
+    portalOrderId: order.id,
+    notes: reason,
+  });
+
   void createAndSendNotifications(params.storage, {
     tenantId: params.tenantId,
     notificationTypeKey: "portal_order_issue",
     title: `Order ${order.orderNumber} reported as not received`,
-    message: `The customer reported order ${order.orderNumber} as not received${reason ? `: "${reason}"` : ""}. Review it in Orders.`,
+    message: `The customer reported order ${order.orderNumber} as not received${reason ? `: "${reason}"` : ""}. Review it under Orders → Exceptions (stock is held until resolved).`,
     metadata: { orderId: order.id, orderNumber: order.orderNumber },
   }).catch((err) => logError("portal order issue staff notification failed", err));
 
   return { ok: true, data: { status: updated.status } };
 }
 
-/** Customer asks to return a completed order (gated by the tenant's returns toggle). */
+/** Customer asks to return a completed order (gated by the tenant's returns toggle + return window). */
 export async function requestOrderReturn(params: {
   storage: IStorage;
   tenantId: string;
@@ -273,6 +283,14 @@ export async function requestOrderReturn(params: {
   if (!(await repo.isReturnsEnabled(params.tenantId))) {
     return { ok: false, error: "This business does not accept returns", code: "RETURNS_DISABLED" };
   }
+  const windowDays = await repo.getReturnWindowDays(params.tenantId);
+  if (!isWithinReturnWindow(order.receiptConfirmedAt, order.completedAt, windowDays)) {
+    return {
+      ok: false,
+      error: `Returns must be requested within ${windowDays} day${windowDays === 1 ? "" : "s"} of receipt`,
+      code: "RETURN_WINDOW_EXPIRED",
+    };
+  }
   const now = new Date();
   const reason = params.reason?.trim() || null;
   const updated = await repo.updateOrder(params.tenantId, params.orderId, {
@@ -281,11 +299,18 @@ export async function requestOrderReturn(params: {
     returnReason: reason,
   });
 
+  await exceptions.openException({
+    tenantId: params.tenantId,
+    kind: "order_return",
+    portalOrderId: order.id,
+    notes: reason,
+  });
+
   void createAndSendNotifications(params.storage, {
     tenantId: params.tenantId,
     notificationTypeKey: "portal_order_issue",
     title: `Return requested for order ${order.orderNumber}`,
-    message: `The customer requested a return for order ${order.orderNumber}${reason ? `: "${reason}"` : ""}. Review it in Orders.`,
+    message: `The customer requested a return for order ${order.orderNumber}${reason ? `: "${reason}"` : ""}. Review it under Orders → Exceptions.`,
     metadata: { orderId: order.id, orderNumber: order.orderNumber },
   }).catch((err) => logError("portal order return-request staff notification failed", err));
 
@@ -307,7 +332,8 @@ export async function getOrdersAttentionCounts(tenantId: string) {
       counts.pendingOrders +
       counts.notReceivedOrders +
       counts.returnRequestedOrders +
-      counts.submittedInvoices,
+      counts.submittedInvoices +
+      counts.pendingPaymentInvoices,
   };
 }
 
@@ -353,6 +379,78 @@ export async function updateOrderStatus(params: {
 
   const now = new Date();
   const startsReceiptWindow = params.status === "ready_for_pickup" || params.status === "out_for_delivery";
+
+  // Deduct stock + create POS sale when first marking ready / out for delivery.
+  if (startsReceiptWindow) {
+    const saleResult = await portalSale.createSaleFromPortalOrder({
+      tenantId: params.tenantId,
+      orderId: params.orderId,
+      cashierUserId: params.reviewerUserId,
+    });
+    if (!saleResult.ok) {
+      return { ok: false, error: saleResult.error, code: "STOCK" };
+    }
+  }
+
+  // Staff-driven not_received / return_requested must open exceptions (same as portal customer paths).
+  if (params.status === "not_received") {
+    await exceptions.openException({
+      tenantId: params.tenantId,
+      kind: "order_not_received",
+      portalOrderId: params.orderId,
+      notes: order.notReceivedReason,
+    });
+  }
+  if (params.status === "return_requested") {
+    await exceptions.openException({
+      tenantId: params.tenantId,
+      kind: "order_return",
+      portalOrderId: params.orderId,
+      notes: order.returnReason,
+    });
+  }
+
+  // Staff marks returned → restock via POS return (exceptions may also drive this).
+  if (params.status === "returned") {
+    const ret = await portalSale.returnPortalOrderSale({
+      tenantId: params.tenantId,
+      orderId: params.orderId,
+      userId: params.reviewerUserId,
+      reason: order.returnReason,
+    });
+    if (!ret.ok) {
+      return { ok: false, error: ret.error, code: "STOCK" };
+    }
+    await exceptions.resolveOpenForOrder({
+      tenantId: params.tenantId,
+      portalOrderId: params.orderId,
+      kind: "order_return",
+      resolution: "approve_return",
+      resolvedByUserId: params.reviewerUserId,
+    });
+  }
+
+  if (params.status === "completed" && currentStatus === "return_requested") {
+    await exceptions.resolveOpenForOrder({
+      tenantId: params.tenantId,
+      portalOrderId: params.orderId,
+      kind: "order_return",
+      resolution: "decline_return",
+      resolvedByUserId: params.reviewerUserId,
+    });
+  }
+
+  if (params.status === "completed" && currentStatus === "not_received") {
+    // Completing without restocking = keep the sale (customer ultimately received / staff override).
+    await exceptions.resolveOpenForOrder({
+      tenantId: params.tenantId,
+      portalOrderId: params.orderId,
+      kind: "order_not_received",
+      resolution: "keep_sale_complete",
+      resolvedByUserId: params.reviewerUserId,
+    });
+  }
+
   const updated = await repo.updateOrder(params.tenantId, params.orderId, {
     status: params.status,
     staffNotes: params.staffNotes !== undefined ? params.staffNotes : undefined,
@@ -480,7 +578,70 @@ export async function listSupplierPurchaseOrders(tenantId: string, supplierId: s
 }
 
 export async function getSupplierPurchaseOrder(tenantId: string, supplierId: string, poId: string) {
-  return repo.getPurchaseOrderForSupplier(tenantId, supplierId, poId);
+  const detail = await repo.getPurchaseOrderForSupplier(tenantId, supplierId, poId);
+  if (!detail) return null;
+  const activeInvoice = await repo.findActiveInvoiceForPo(tenantId, poId);
+  const suggestedAmount = repo.computeInvoicePrefillAmount(detail.items, detail.po.totalAmount);
+  const suggestedInvoiceNumber = await repo.nextSupplierInvoiceNumber(tenantId, supplierId);
+  return {
+    ...detail,
+    activeInvoice,
+    invoicePrefill: {
+      invoiceNumber: suggestedInvoiceNumber,
+      amount: suggestedAmount,
+      invoiceDate: new Date().toISOString().slice(0, 10),
+    },
+  };
+}
+
+export async function confirmSupplierPurchaseOrder(params: {
+  tenantId: string;
+  supplierId: string;
+  portalUserId: string;
+  poId: string;
+}): Promise<ServiceResult<{ status: string }>> {
+  const detail = await repo.getPurchaseOrderForSupplier(params.tenantId, params.supplierId, params.poId);
+  if (!detail) return { ok: false, error: "Purchase order not found", code: "NOT_FOUND" };
+  if (detail.po.status !== "approved") {
+    return { ok: false, error: "Only approved purchase orders can be confirmed", code: "INVALID_STATE" };
+  }
+  const updated = await repo.updatePurchaseOrderForSupplier(
+    params.tenantId,
+    params.supplierId,
+    params.poId,
+    {
+      status: "ordered",
+      supplierConfirmedAt: new Date(),
+      supplierConfirmedByPortalUserId: params.portalUserId,
+    },
+  );
+  if (!updated) return { ok: false, error: "Purchase order not found", code: "NOT_FOUND" };
+  return { ok: true, data: { status: updated.status! } };
+}
+
+export async function shipSupplierPurchaseOrder(params: {
+  tenantId: string;
+  supplierId: string;
+  portalUserId: string;
+  poId: string;
+}): Promise<ServiceResult<{ status: string }>> {
+  const detail = await repo.getPurchaseOrderForSupplier(params.tenantId, params.supplierId, params.poId);
+  if (!detail) return { ok: false, error: "Purchase order not found", code: "NOT_FOUND" };
+  if (detail.po.status !== "ordered") {
+    return { ok: false, error: "Confirm the purchase order before marking it shipped", code: "INVALID_STATE" };
+  }
+  const updated = await repo.updatePurchaseOrderForSupplier(
+    params.tenantId,
+    params.supplierId,
+    params.poId,
+    {
+      status: "shipped",
+      supplierShippedAt: new Date(),
+      supplierShippedByPortalUserId: params.portalUserId,
+    },
+  );
+  if (!updated) return { ok: false, error: "Purchase order not found", code: "NOT_FOUND" };
+  return { ok: true, data: { status: updated.status! } };
 }
 
 export async function submitSupplierInvoice(params: {
@@ -489,37 +650,46 @@ export async function submitSupplierInvoice(params: {
   supplierId: string;
   portalUserId: string;
   input: {
-    purchaseOrderId?: string | null;
-    invoiceNumber: string;
+    purchaseOrderId: string;
     amount: string;
     invoiceDate?: string | null;
     notes?: string | null;
+    /** Ignored when server generates; accepted only for display sync. */
+    invoiceNumber?: string | null;
   };
-}): Promise<ServiceResult<{ invoiceId: string }>> {
+}): Promise<ServiceResult<{ invoiceId: string; invoiceNumber: string }>> {
   const { storage, tenantId, supplierId, portalUserId, input } = params;
+
+  if (!input.purchaseOrderId) {
+    return { ok: false, error: "A purchase order is required to submit an invoice" };
+  }
 
   const amountCents = toCents(input.amount);
   if (amountCents == null || amountCents <= 0) {
     return { ok: false, error: "Invoice amount must be a positive number" };
   }
 
-  const invoiceNumber = input.invoiceNumber.trim();
-  if (!invoiceNumber) return { ok: false, error: "Invoice number is required" };
-
-  const duplicate = await repo.findSupplierInvoiceByNumber(tenantId, supplierId, invoiceNumber);
-  if (duplicate) return { ok: false, error: `Invoice ${invoiceNumber} has already been submitted` };
-
-  let poNumber: string | null = null;
-  if (input.purchaseOrderId) {
-    const po = await repo.getPurchaseOrderForSupplier(tenantId, supplierId, input.purchaseOrderId);
-    if (!po) return { ok: false, error: "Purchase order not found for your account" };
-    poNumber = po.po.poNumber;
+  const po = await repo.getPurchaseOrderForSupplier(tenantId, supplierId, input.purchaseOrderId);
+  if (!po) return { ok: false, error: "Purchase order not found for your account" };
+  if (po.po.status !== "partially_received" && po.po.status !== "completed") {
+    return {
+      ok: false,
+      error: "Invoice can only be submitted after the buyer has received the goods",
+      code: "INVALID_STATE",
+    };
   }
+
+  const active = await repo.findActiveInvoiceForPo(tenantId, input.purchaseOrderId);
+  if (active) {
+    return { ok: false, error: "An invoice has already been submitted for this purchase order", code: "CONFLICT" };
+  }
+
+  const invoiceNumber = await repo.nextSupplierInvoiceNumber(tenantId, supplierId);
 
   const invoice = await repo.createSupplierInvoice({
     tenantId,
     supplierId,
-    purchaseOrderId: input.purchaseOrderId ?? null,
+    purchaseOrderId: input.purchaseOrderId,
     portalUserId,
     invoiceNumber,
     amount: centsToString(amountCents),
@@ -531,11 +701,11 @@ export async function submitSupplierInvoice(params: {
     tenantId,
     notificationTypeKey: "supplier_invoice_submitted",
     title: `Supplier invoice ${invoiceNumber} submitted`,
-    message: `A supplier submitted invoice ${invoiceNumber} for ${invoice.amount}${poNumber ? ` against PO ${poNumber}` : ""}.`,
-    metadata: { invoiceId: invoice.id, purchaseOrderId: input.purchaseOrderId ?? null },
+    message: `A supplier submitted invoice ${invoiceNumber} for ${invoice.amount} against PO ${po.po.poNumber}.`,
+    metadata: { invoiceId: invoice.id, purchaseOrderId: input.purchaseOrderId },
   }).catch((err) => logError("supplier invoice staff notification failed", err));
 
-  return { ok: true, data: { invoiceId: invoice.id } };
+  return { ok: true, data: { invoiceId: invoice.id, invoiceNumber } };
 }
 
 export async function listSupplierInvoices(tenantId: string, supplierId: string) {

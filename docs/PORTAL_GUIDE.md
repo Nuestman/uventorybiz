@@ -16,8 +16,8 @@ are linked **directly to customer or supplier records**.
 
 | Party | Source record | Portal capabilities (current) |
 |---|---|---|
-| Customer | `customers` row (with email) | Dashboard, **shop & place orders (pickup or delivery)**, **track/cancel orders**, **Support (system issues)**, profile & password, notification preferences |
-| Supplier | `suppliers` row (with email) | Dashboard, **view purchase orders issued to them**, **submit invoices**, **Support (system issues)**, profile & password, notification preferences |
+| Customer | `customers` row (with email) | Dashboard, **shop & place orders**, **track/confirm receipt / request return** (within return window), **Support**, profile & preferences |
+| Supplier | `suppliers` row (with email) | Dashboard, **confirm & ship POs**, **submit invoices**, **Support**, profile & preferences |
 
 A person can get a portal account only if a matching **customer** or **supplier**
 record exists in the tenant (matched by email), or if an admin provisions an account
@@ -129,10 +129,7 @@ Rejecting records the reviewer + optional notes; no credentials are sent.
   client-side pagination (`PortalPagination`). The sidebar does **not** badge
   My orders for unread order-update notifications (Messages keeps the messaging
   unread badge).
-- **Purchase orders & invoices** (suppliers) — POs issued to them (approved and
-  later stages only; drafts stay hidden), PO detail with line items and received
-  quantities, and invoice submission (against a PO or standalone) with status
-  tracking (submitted → accepted/rejected → paid).
+- **Purchase orders & invoices** (suppliers) — lifecycle: **Confirm PO** (`approved` → `ordered`) → **Mark shipped** (`shipped`) → buyer receives → **Submit invoice** (auto invoice number; amount/date prefilled from received qty). At most one non-rejected invoice per PO. See [PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md](./PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md).
 - **Settings/Profile** — account email, password change, notification preferences
   (including **Order updates**, email + in-app).
 - **Support** — report system-related portal issues (login, shop, orders UX). Nav item
@@ -155,9 +152,11 @@ Rejecting records the reviewer + optional notes; no credentials are sent.
    notification type, email + in-app, preference-based).
 3. Staff manage orders under **Inventory Management → Portal Orders** (`/orders`):
    confirm, mark ready for pickup (pickup orders) / out for delivery (delivery
-   orders), complete, cancel, or reject. Transitions are fulfillment-aware and
-   validated (`allowedOrderTransitions` in `shared/portalOrders.ts`) — pickup
-   orders never pass through *out for delivery*.
+   orders), complete, cancel, or reject. **Marking ready / out for delivery creates a
+   POS sale** (`pos_sales.portal_order_id`), deducts stock, and shows on **Sales History**
+   with a Portal badge. Transitions are fulfillment-aware
+   (`allowedOrderTransitions` in `shared/portalOrders.ts`) — pickup orders never pass
+   through *out for delivery*.
 4. When dispatching a delivery, staff can record the **courier's name and phone**
    (`delivery_contact_*`); these are shown to the customer while the order is out
    for delivery (and included in the notification email).
@@ -166,38 +165,34 @@ Rejecting records the reviewer + optional notes; no credentials are sent.
    - The customer confirms receipt (`POST /api/portal/orders/:id/confirm-receipt`)
      → order completes immediately (`receipt_confirmed_at` set).
    - Or reports a problem (`POST /api/portal/orders/:id/not-received`, optional
-     reason) → order moves to **not_received** and staff admins are notified
-     (`portal_order_issue` type). Staff resolve by re-dispatching/re-staging
-     (which restarts the grace window), completing, or cancelling.
+     reason) → order moves to **not_received**, opens a **fulfillment exception**
+     (stock is **held** — not auto-restocked). Staff resolve under **Orders → Exceptions**
+     (Restock vs Keep sale / complete).
    - Staff cannot mark the order complete until the grace window ends (server
      returns `GRACE_PERIOD`); after it ends, the daily cron (6:30 AM,
      `processPortalOrderAutoCompletion`) auto-completes any order still awaiting
      confirmation and notifies the customer.
 6. **Returns** — on a *completed* order the customer can request a return
    (`POST /api/portal/orders/:id/request-return`, optional reason) → order moves to
-   **return_requested** and staff admins are notified (`portal_order_issue` type).
-   Staff process the refund through the POS (Returns → look up the receipt) and mark
-   the order **returned**, or move it back to *completed* to decline. Gated by the
-   per-business **Returns & refunds** toggle (`tenants.returns_enabled`, managed in
-   Settings), which also gates in-person POS returns.
+   **return_requested**, opens an exception. Staff approve (restocks via POS return)
+   or decline. Gated by the per-business **Returns & refunds** toggle and the
+   **portal return window** (`tenants.return_window_days`, default **3** days from
+   receipt confirmation or completion). POS staff returns are not limited by this window.
 7. Each staff status change notifies the customer (portal in-app notification +
    email, honouring the customer's `order_updates` preferences).
-8. Stock is **not** decremented by portal orders — fulfil the order through the POS
-   or an inventory transaction as part of your normal process. Staff see orders and
-   invoices needing action (pending, not received, return requested, submitted
-   invoices) as a badge on the **Portal Orders** sidebar item
-   (`GET /api/orders/attention-count`), and not-received / return-requested rows are
-   highlighted in the Orders list.
+8. Staff see orders and invoices needing action as a badge on the **Portal Orders**
+   sidebar item (`GET /api/orders/attention-count`), including open exceptions.
 
 ## 5b. Supplier invoicing flow
 
-1. Supplier sees POs with status `approved` / `ordered` / `partially_received` /
-   `completed` (`GET /api/portal/supplier/purchase-orders`).
-2. Supplier submits an invoice (`POST /api/portal/supplier/invoices`) — invoice
-   number (unique per supplier), amount, optional PO link, date, and notes. Staff
-   admins are notified (`supplier_invoice_submitted` type).
-3. Staff review invoices on the **Portal Orders → Supplier invoices** tab:
-   accept, reject, or mark paid.
+1. Staff approve a PO → status `approved` (visible in the supplier portal).
+2. Supplier **confirms** (`POST /api/portal/supplier/purchase-orders/:id/confirm`) → `ordered`.
+3. Supplier **marks shipped** (`…/ship`) → `shipped`.
+4. Staff **receive** into a location (only allowed from `shipped` or continuing `partially_received`) → `partially_received` / `completed`.
+5. Supplier submits an invoice (`POST /api/portal/supplier/invoices`) — invoice number is
+   **auto-generated** (`INV-YYYYMMDD-NNN`); amount/date are prefilled (editable). Only one
+   non-rejected invoice per PO.
+6. Staff review invoices on **Portal Orders → Supplier invoices**: accept, reject, or mark paid.
 
 ## 6. Data model
 
@@ -227,6 +222,10 @@ Relevant migrations:
 - `drizzle/0012_uventorybiz_order_returns.sql` — added the `return_requested` and
   `returned` order statuses, return columns on `portal_orders`, and the per-business
   `tenants.returns_enabled` toggle.
+- `drizzle/0026_portal_sales_po_exceptions.sql` — portal order → POS sale link,
+  PO `shipped` status, `fulfillment_exceptions` queue.
+- `drizzle/0027_return_window_and_pos_payments.sql` — `tenants.return_window_days`
+  (default 3) and POS payment methods `mobile_money` / `credit`.
 
 ## 7. Troubleshooting
 

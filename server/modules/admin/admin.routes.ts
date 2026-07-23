@@ -56,7 +56,8 @@ const adminCreatePortalUserSchema = z
 
 const adminSecuritySettingsPutSchema = z.object({
   staffSessionAbsoluteHours: z.number().int().min(1).max(168).optional(),
-  staffSessionIdleMinutes: z.number().int().min(5).max(480).optional(),
+  // staffSessionIdleMinutes: z.number().int().min(5).max(480).optional(), # Restored in production
+  staffSessionIdleMinutes: z.number().int().min(5).max(1440).optional(),
   portalSessionAbsoluteDays: z.number().int().min(1).max(90).optional(),
   portalSessionIdleMinutes: z.number().int().min(5).max(1440).optional(),
   portalSessionSlidingDays: z.number().int().min(1).max(30).optional(),

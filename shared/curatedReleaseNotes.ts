@@ -13,6 +13,17 @@ export type CuratedReleaseNote = {
 export const CURATED_RELEASE_NOTES: Record<ReleaseNoteAudience, CuratedReleaseNote[]> = {
   staff: [
     {
+      version: "1.3.0",
+      date: "2026-07-23",
+      title: "Portal sales, PO shipping, and Exceptions",
+      highlights: [
+        "Portal customer orders create a POS sale and deduct stock when marked ready for pickup or out for delivery — they appear on Sales History with a Portal badge.",
+        "Suppliers confirm and mark POs shipped before you can receive; invoices use auto INV numbers (one active invoice per PO).",
+        "Orders → Exceptions for not-received (stock held until you resolve) and return requests.",
+        "Settings: set how many days after receipt a customer may request a return (default 3). POS now accepts Mobile Money and Credit (Pay Later).",
+      ],
+    },
+    {
       version: "1.0.0",
       date: "2026-07-18",
       title: "Welcome to uventorybiz",
@@ -26,6 +37,16 @@ export const CURATED_RELEASE_NOTES: Record<ReleaseNoteAudience, CuratedReleaseNo
     },
   ],
   portal: [
+    {
+      version: "1.3.0",
+      date: "2026-07-23",
+      title: "Orders, shipping, and returns",
+      highlights: [
+        "When your order is ready or out for delivery, the store has reserved your items as a sale.",
+        "Suppliers: confirm purchase orders, mark them shipped, then submit an invoice after the buyer receives.",
+        "Request a return on completed orders within the business’s return window (often a few days after receipt).",
+      ],
+    },
     {
       version: "1.0.0",
       date: "2026-07-18",

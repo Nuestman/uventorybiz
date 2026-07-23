@@ -11,6 +11,11 @@ import {
   updateOrderStatus,
   updateSupplierInvoiceStatus,
 } from "../portal/portal-orders.service";
+import {
+  countOpenExceptions,
+  listExceptions,
+  resolveException,
+} from "../portal/fulfillment-exceptions.service";
 
 const updateOrderStatusSchema = z.object({
   status: z.enum(PORTAL_ORDER_STATUSES),
@@ -22,6 +27,18 @@ const updateOrderStatusSchema = z.object({
 
 const updateInvoiceStatusSchema = z.object({
   status: z.enum(SUPPLIER_INVOICE_STATUSES),
+});
+
+const resolveExceptionSchema = z.object({
+  resolution: z.enum([
+    "restock_reverse_sale",
+    "keep_sale_complete",
+    "approve_return",
+    "decline_return",
+    "accept_invoice",
+    "reject_invoice",
+  ]),
+  notes: z.string().max(4000).optional().nullable(),
 });
 
 export interface OrdersRoutesDeps {
@@ -49,8 +66,42 @@ export function createOrdersRouter(deps: OrdersRoutesDeps): Router {
   router.get("/orders/attention-count", authMiddleware, async (req: any, res) => {
     const tenantId = req.user?.tenantId;
     if (!tenantId) return sendError(res, 400, "User has no tenant association");
-    res.json(await getOrdersAttentionCounts(tenantId));
+    const counts = await getOrdersAttentionCounts(tenantId);
+    const openExceptions = await countOpenExceptions(tenantId);
+    res.json({ ...counts, openExceptions, total: counts.total + openExceptions });
   });
+
+  router.get("/orders/exceptions", authMiddleware, async (req: any, res) => {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return sendError(res, 400, "User has no tenant association");
+    const statusParam = typeof req.query.status === "string" ? req.query.status : "open";
+    const status = statusParam === "resolved" || statusParam === "open" ? statusParam : "open";
+    res.json(await listExceptions(tenantId, { status }));
+  });
+
+  router.post(
+    "/orders/exceptions/:id/resolve",
+    authMiddleware,
+    validateBody(resolveExceptionSchema),
+    async (req: any, res) => {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) return sendError(res, 400, "User has no tenant association");
+      const body = req.body as z.infer<typeof resolveExceptionSchema>;
+      const result = await resolveException({
+        tenantId,
+        exceptionId: req.params.id,
+        resolution: body.resolution,
+        resolvedByUserId: req.user.id,
+        notes: body.notes,
+      });
+      if (!result.ok) {
+        const code =
+          result.code === "NOT_FOUND" ? 404 : result.code === "CONFLICT" ? 409 : 400;
+        return sendError(res, code, result.error);
+      }
+      res.json({ ok: true });
+    },
+  );
 
   router.patch(
     "/orders/:id/status",
@@ -73,7 +124,7 @@ export function createOrdersRouter(deps: OrdersRoutesDeps): Router {
         const code =
           result.code === "NOT_FOUND"
             ? 404
-            : result.code === "INVALID_STATE" || result.code === "GRACE_PERIOD"
+            : result.code === "INVALID_STATE" || result.code === "GRACE_PERIOD" || result.code === "STOCK"
               ? 409
               : 400;
         return sendError(res, code, result.error);

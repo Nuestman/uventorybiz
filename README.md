@@ -2,7 +2,7 @@
 
 > Multi-tenant business management with inventory and POS
 
-**Version:** `1.2.0`  
+**Version:** `1.3.0`  
 **Repo:** https://github.com/Nuestman/uventorybiz
 
 ## Overview
@@ -11,7 +11,7 @@ uventorybiz is a multi-tenant B2B platform: inventory, POS, operations (appointm
 
 Archived clinical/MineAid code lives under [`purged/`](purged/README.md) and is not part of the running app.
 
-See [`docs/UVENTORYBIZ.md`](docs/UVENTORYBIZ.md), [`docs/VERSION.md`](docs/VERSION.md), [`docs/CHANGELOG.md`](docs/CHANGELOG.md), and [`docs/APP_NAVIGATION_AND_BREADCRUMBS.md`](docs/APP_NAVIGATION_AND_BREADCRUMBS.md).
+See [`docs/UVENTORYBIZ.md`](docs/UVENTORYBIZ.md), [`docs/VERSION.md`](docs/VERSION.md), [`docs/CHANGELOG.md`](docs/CHANGELOG.md), and [`docs/PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md`](docs/PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md).
 
 ## Stack
 

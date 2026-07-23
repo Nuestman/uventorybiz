@@ -13,6 +13,10 @@ export interface TenantSettings {
   faviconUrl: string | null;
   /** Whether the business accepts returns/refunds (POS returns + portal return requests). */
   returnsEnabled: boolean;
+  /**
+   * Days after receipt/completion during which a portal customer may request a return.
+   */
+  returnWindowDays: number;
   /** Whether the business offers point-of-care lab testing (instant tests). */
   pocTestingEnabled: boolean;
   /** Business category key (pharmacy, laboratory, retail, …). */

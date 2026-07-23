@@ -120,10 +120,16 @@ export const transactionTypeEnum = pgEnum("transaction_type", [
 ]);
 export const maintenanceTypeEnum = pgEnum("maintenance_type", ["preventive", "corrective", "calibration", "inspection", "daily_check"]);
 export const maintenanceStatusEnum = pgEnum("maintenance_status", ["scheduled", "in_progress", "completed", "overdue", "cancelled"]);
-export const purchaseOrderStatusEnum = pgEnum("purchase_order_status", ["draft", "pending_approval", "approved", "ordered", "partially_received", "completed", "cancelled"]);
+export const purchaseOrderStatusEnum = pgEnum("purchase_order_status", ["draft", "pending_approval", "approved", "ordered", "shipped", "partially_received", "completed", "cancelled"]);
 export const posShiftStatusEnum = pgEnum("pos_shift_status", ["open", "closed"]);
 export const posSaleStatusEnum = pgEnum("pos_sale_status", ["draft", "completed", "voided", "returned"]);
-export const posPaymentMethodEnum = pgEnum("pos_payment_method", ["cash", "card", "other"]);
+export const posPaymentMethodEnum = pgEnum("pos_payment_method", [
+  "cash",
+  "card",
+  "mobile_money",
+  "credit",
+  "other",
+]);
 
 // Drugs, Alcohol & Hydration Testing Module Enums
 export const testingProgramTypeEnum = pgEnum("testing_program_type", ["pre_employment", "random", "post_incident", "reasonable_suspicion", "return_to_duty", "follow_up"]);
@@ -213,6 +219,11 @@ export const tenants = pgTable("tenants", {
   defaultTaxRate: real("default_tax_rate").default(0),
   /** Whether this business accepts returns/refunds (gates POS returns + portal return requests). */
   returnsEnabled: boolean("returns_enabled").notNull().default(true),
+  /**
+   * Days after receipt/completion during which a portal customer may request a return.
+   * Default 3 (same idea as the receipt-confirmation grace window). POS staff returns are not gated by this.
+   */
+  returnWindowDays: integer("return_window_days").notNull().default(3),
   /** Whether this business offers point-of-care lab testing (instant tests). Asked at signup for pharmacies; toggleable in Settings. */
   pocTestingEnabled: boolean("poc_testing_enabled").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
@@ -1007,6 +1018,52 @@ export const supplierInvoices = pgTable(
 );
 
 export type SupplierInvoice = typeof supplierInvoices.$inferSelect;
+
+/** Staff resolution queue for portal order / invoice conflicts (investigation hold). */
+export const fulfillmentExceptionKindEnum = pgEnum("fulfillment_exception_kind", [
+  "order_not_received",
+  "order_return",
+  "invoice_dispute",
+]);
+
+export const fulfillmentExceptionStatusEnum = pgEnum("fulfillment_exception_status", ["open", "resolved"]);
+
+export const fulfillmentExceptionResolutionEnum = pgEnum("fulfillment_exception_resolution", [
+  "restock_reverse_sale",
+  "keep_sale_complete",
+  "approve_return",
+  "decline_return",
+  "accept_invoice",
+  "reject_invoice",
+]);
+
+export const fulfillmentExceptions = pgTable(
+  "fulfillment_exceptions",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    kind: fulfillmentExceptionKindEnum("kind").notNull(),
+    status: fulfillmentExceptionStatusEnum("status").notNull().default("open"),
+    portalOrderId: varchar("portal_order_id").references(() => portalOrders.id, { onDelete: "set null" }),
+    supplierInvoiceId: varchar("supplier_invoice_id").references(() => supplierInvoices.id, {
+      onDelete: "set null",
+    }),
+    notes: text("notes"),
+    resolution: fulfillmentExceptionResolutionEnum("resolution"),
+    resolvedByUserId: varchar("resolved_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    resolvedAt: timestamp("resolved_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => ({
+    tenantStatusIdx: index("idx_fulfillment_exceptions_tenant_status").on(t.tenantId, t.status),
+    portalOrderIdx: index("idx_fulfillment_exceptions_portal_order").on(t.portalOrderId),
+  }),
+);
+
+export type FulfillmentException = typeof fulfillmentExceptions.$inferSelect;
 
 // Incident reports — workplace / business incidents (employee subject)
 export const incidentReports = pgTable("incident_reports", {
@@ -2192,6 +2249,8 @@ export const posSales = pgTable("pos_sales", {
   shiftId: varchar("shift_id").notNull().references(() => posShifts.id),
   locationId: varchar("location_id").notNull().references(() => careLocations.id),
   customerId: varchar("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  /** When set, this sale was created from a portal customer order (online channel). */
+  portalOrderId: varchar("portal_order_id").references(() => portalOrders.id, { onDelete: "set null" }),
   cashierUserId: varchar("cashier_user_id").notNull().references(() => users.id),
   status: posSaleStatusEnum("status").notNull().default("draft"),
   subtotal: varchar("subtotal").notNull().default("0"),
@@ -2301,6 +2360,17 @@ export const purchaseOrders = pgTable("purchase_orders", {
   status: purchaseOrderStatusEnum("status").default("draft"),
   approvedBy: varchar("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),
+
+  /** Supplier portal: accepted the PO (status → ordered). */
+  supplierConfirmedAt: timestamp("supplier_confirmed_at"),
+  supplierConfirmedByPortalUserId: varchar("supplier_confirmed_by_portal_user_id").references(() => portalUsers.id, {
+    onDelete: "set null",
+  }),
+  /** Supplier portal: marked goods shipped (status → shipped). */
+  supplierShippedAt: timestamp("supplier_shipped_at"),
+  supplierShippedByPortalUserId: varchar("supplier_shipped_by_portal_user_id").references(() => portalUsers.id, {
+    onDelete: "set null",
+  }),
 
   // Tracking
   createdBy: varchar("created_by").notNull().references(() => users.id),

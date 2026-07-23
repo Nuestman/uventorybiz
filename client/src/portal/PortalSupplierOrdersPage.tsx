@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Loader2, Receipt } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, Receipt, Truck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import {
+  PURCHASE_ORDER_STATUS_LABELS,
   SUPPLIER_INVOICE_STATUS_LABELS,
   type SupplierInvoiceStatus,
 } from "@shared/portalOrders";
@@ -56,6 +56,12 @@ type SupplierPoDetail = {
     unitCost: string;
     totalCost: string;
   }>;
+  activeInvoice: { id: string; invoiceNumber: string; status: SupplierInvoiceStatus } | null;
+  invoicePrefill: {
+    invoiceNumber: string;
+    amount: string;
+    invoiceDate: string;
+  };
 };
 
 type SupplierInvoiceRow = {
@@ -69,13 +75,6 @@ type SupplierInvoiceRow = {
     createdAt: string | null;
   };
   poNumber: string | null;
-};
-
-const PO_STATUS_LABELS: Record<string, string> = {
-  approved: "Approved",
-  ordered: "Ordered",
-  partially_received: "Partially received",
-  completed: "Completed",
 };
 
 function invoiceStatusVariant(status: SupplierInvoiceStatus): "default" | "secondary" | "destructive" | "outline" {
@@ -93,6 +92,10 @@ function invoiceStatusVariant(status: SupplierInvoiceStatus): "default" | "secon
       return _exhaustive;
     }
   }
+}
+
+function poStatusLabel(status: string): string {
+  return PURCHASE_ORDER_STATUS_LABELS[status] ?? status;
 }
 
 export default function PortalSupplierOrdersPage() {
@@ -123,11 +126,56 @@ export default function PortalSupplierOrdersPage() {
     enabled: !!detailPoId,
   });
 
-  const openInvoiceDialog = (poId: string | null) => {
-    setInvoicePoId(poId);
-    setInvoiceNumber("");
-    setInvoiceAmount("");
-    setInvoiceDate("");
+  const invalidatePo = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/portal/supplier/purchase-orders"] });
+    if (detailPoId) {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/portal/supplier/purchase-orders/${detailPoId}`],
+      });
+    }
+  };
+
+  const confirmMutation = useMutation({
+    mutationFn: async (poId: string) => {
+      const res = await apiRequest("POST", `/api/portal/supplier/purchase-orders/${poId}/confirm`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Purchase order confirmed", description: "The buyer can expect shipment next." });
+      invalidatePo();
+    },
+    onError: (err: Error) => {
+      toast({ title: "Could not confirm", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const shipMutation = useMutation({
+    mutationFn: async (poId: string) => {
+      const res = await apiRequest("POST", `/api/portal/supplier/purchase-orders/${poId}/ship`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Marked as shipped", description: "Waiting for the buyer to receive the goods." });
+      invalidatePo();
+    },
+    onError: (err: Error) => {
+      toast({ title: "Could not mark shipped", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const openInvoiceDialog = () => {
+    if (!poDetail || !detailPoId) return;
+    if (poDetail.activeInvoice) {
+      toast({
+        title: "Invoice already submitted",
+        description: `Invoice ${poDetail.activeInvoice.invoiceNumber} is ${poDetail.activeInvoice.status}.`,
+      });
+      return;
+    }
+    setInvoicePoId(detailPoId);
+    setInvoiceNumber(poDetail.invoicePrefill.invoiceNumber);
+    setInvoiceAmount(poDetail.invoicePrefill.amount);
+    setInvoiceDate(poDetail.invoicePrefill.invoiceDate);
     setInvoiceNotes("");
     setInvoiceOpen(true);
   };
@@ -136,29 +184,37 @@ export default function PortalSupplierOrdersPage() {
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/portal/supplier/invoices", {
         purchaseOrderId: invoicePoId,
-        invoiceNumber: invoiceNumber.trim(),
         amount: invoiceAmount.trim(),
         invoiceDate: invoiceDate || null,
         notes: invoiceNotes.trim() || null,
       });
-      return res.json();
+      return res.json() as Promise<{ invoiceId: string; invoiceNumber: string }>;
     },
-    onSuccess: () => {
-      toast({ title: "Invoice submitted", description: "The business has been notified." });
+    onSuccess: (data) => {
+      toast({
+        title: "Invoice submitted",
+        description: `Invoice ${data.invoiceNumber} sent to the business.`,
+      });
       setInvoiceOpen(false);
       queryClient.invalidateQueries({ queryKey: ["/api/portal/supplier/invoices"] });
+      invalidatePo();
     },
     onError: (err: Error) => {
       toast({ title: "Could not submit invoice", description: err.message, variant: "destructive" });
     },
   });
 
+  const canInvoice =
+    poDetail &&
+    (poDetail.po.status === "partially_received" || poDetail.po.status === "completed") &&
+    !poDetail.activeInvoice;
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-gray-900">Purchase orders & invoices</h2>
         <p className="text-sm text-uventorybiz-gray">
-          Purchase orders issued to you, and the invoices you have submitted.
+          Confirm POs, mark them shipped, then invoice after the buyer receives the goods.
         </p>
       </div>
 
@@ -178,117 +234,90 @@ export default function PortalSupplierOrdersPage() {
               description="Purchase orders issued to you by the business will appear here."
             />
           ) : (
-            <Card className="border-gray-200 shadow-sm">
-              <CardContent className="p-0 overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">#</TableHead>
-                      <TableHead>PO number</TableHead>
-                      <TableHead>Order date</TableHead>
-                      <TableHead>Expected delivery</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+            <div className="rounded-lg border overflow-x-auto bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>PO #</TableHead>
+                    <TableHead>Ordered</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="w-28" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pos.map((po) => (
+                    <TableRow key={po.id}>
+                      <TableCell className="font-medium">{po.poNumber}</TableCell>
+                      <TableCell>{new Date(po.orderDate).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{poStatusLabel(po.status)}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">{po.totalAmount}</TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="outline" onClick={() => setDetailPoId(po.id)}>
+                          View
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pos.map((po, index) => (
-                      <TableRow key={po.id}>
-                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
-                        <TableCell className="font-medium">{po.poNumber}</TableCell>
-                        <TableCell>{new Date(po.orderDate).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          {po.expectedDelivery ? new Date(po.expectedDelivery).toLocaleDateString() : "—"}
-                        </TableCell>
-                        <TableCell>{po.totalAmount}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize">
-                            {PO_STATUS_LABELS[po.status] ?? po.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right space-x-2 whitespace-nowrap">
-                          <Button size="sm" variant="outline" onClick={() => setDetailPoId(po.id)}>
-                            View
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => openInvoiceDialog(po.id)}>
-                            <Receipt className="h-3.5 w-3.5 mr-1" />
-                            Invoice
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </TabsContent>
 
         <TabsContent value="invoices" className="space-y-4">
-          <div className="flex justify-end">
-            <Button className={PORTAL_PRIMARY_BTN_CLASS} onClick={() => openInvoiceDialog(null)}>
-              <Receipt className="h-4 w-4 mr-2" />
-              Submit invoice
-            </Button>
-          </div>
           {invoicesLoading ? (
             <PortalLoadingBlock label="Loading invoices…" />
           ) : invoices.length === 0 ? (
             <PortalEmptyState
               icon={Receipt}
               title="No invoices yet"
-              description="Invoices you submit will appear here with their review status."
+              description="After the buyer receives a PO, submit your invoice from the purchase order detail."
             />
           ) : (
-            <Card className="border-gray-200 shadow-sm">
-              <CardContent className="p-0 overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">#</TableHead>
-                      <TableHead>Invoice #</TableHead>
-                      <TableHead>PO</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Invoice date</TableHead>
-                      <TableHead>Status</TableHead>
+            <div className="rounded-lg border overflow-x-auto bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>PO</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoices.map(({ invoice, poNumber }) => (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                      <TableCell>{poNumber ?? "—"}</TableCell>
+                      <TableCell>{invoice.amount}</TableCell>
+                      <TableCell>
+                        {invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString() : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={invoiceStatusVariant(invoice.status)}>
+                          {SUPPLIER_INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
+                        </Badge>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {invoices.map(({ invoice, poNumber }, index) => (
-                      <TableRow key={invoice.id}>
-                        <TableCell className="font-medium text-muted-foreground tabular-nums">{index + 1}</TableCell>
-                        <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                        <TableCell>{poNumber ?? "—"}</TableCell>
-                        <TableCell>{invoice.amount}</TableCell>
-                        <TableCell>
-                          {invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString() : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={invoiceStatusVariant(invoice.status)}>
-                            {SUPPLIER_INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </TabsContent>
       </Tabs>
 
-      {/* PO detail dialog */}
       <Dialog open={!!detailPoId} onOpenChange={(open) => !open && setDetailPoId(null)}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{poDetail?.po.poNumber ?? "Purchase order"}</DialogTitle>
             <DialogDescription>
               {poDetail
-                ? `Ordered ${new Date(poDetail.po.orderDate).toLocaleDateString()} · ${
-                    PO_STATUS_LABELS[poDetail.po.status] ?? poDetail.po.status
-                  }`
+                ? `Ordered ${new Date(poDetail.po.orderDate).toLocaleDateString()} · ${poStatusLabel(poDetail.po.status)}`
                 : ""}
             </DialogDescription>
           </DialogHeader>
@@ -327,12 +356,54 @@ export default function PortalSupplierOrdersPage() {
                   </TableBody>
                 </Table>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-semibold">Total: {poDetail.po.totalAmount}</p>
-                <Button size="sm" variant="outline" onClick={() => openInvoiceDialog(poDetail.po.id)}>
-                  <Receipt className="h-3.5 w-3.5 mr-1" />
-                  Submit invoice for this PO
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  {poDetail.po.status === "approved" ? (
+                    <Button
+                      size="sm"
+                      className={PORTAL_PRIMARY_BTN_CLASS}
+                      disabled={confirmMutation.isPending}
+                      onClick={() => confirmMutation.mutate(poDetail.po.id)}
+                    >
+                      {confirmMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      Confirm purchase order
+                    </Button>
+                  ) : null}
+                  {poDetail.po.status === "ordered" ? (
+                    <Button
+                      size="sm"
+                      className={PORTAL_PRIMARY_BTN_CLASS}
+                      disabled={shipMutation.isPending}
+                      onClick={() => shipMutation.mutate(poDetail.po.id)}
+                    >
+                      {shipMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <Truck className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      Mark as shipped
+                    </Button>
+                  ) : null}
+                  {poDetail.po.status === "shipped" ? (
+                    <p className="text-sm text-uventorybiz-gray">Waiting for the buyer to receive.</p>
+                  ) : null}
+                  {canInvoice ? (
+                    <Button size="sm" variant="outline" onClick={openInvoiceDialog}>
+                      <Receipt className="h-3.5 w-3.5 mr-1" />
+                      Submit invoice
+                    </Button>
+                  ) : null}
+                  {poDetail.activeInvoice ? (
+                    <Badge variant="secondary">
+                      Invoice {poDetail.activeInvoice.invoiceNumber} · {poDetail.activeInvoice.status}
+                    </Badge>
+                  ) : null}
+                </div>
               </div>
               {poDetail.po.notes ? (
                 <p className="text-sm text-uventorybiz-gray">
@@ -344,38 +415,29 @@ export default function PortalSupplierOrdersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Submit invoice dialog */}
       <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Submit invoice</DialogTitle>
             <DialogDescription>
               {invoicePoId
-                ? `Against PO ${pos.find((po) => po.id === invoicePoId)?.poNumber ?? ""}`
-                : "Not linked to a purchase order (you can link one from the PO list instead)."}
+                ? `Against PO ${pos.find((po) => po.id === invoicePoId)?.poNumber ?? poDetail?.po.poNumber ?? ""}`
+                : ""}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="inv-number">Invoice number</Label>
-              <Input
-                id="inv-number"
-                value={invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
-                placeholder="INV-2026-001"
-              />
+              <Input id="inv-number" value={invoiceNumber} readOnly className="bg-muted" />
+              <p className="text-xs text-muted-foreground">Assigned automatically.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="inv-amount">Amount</Label>
                 <Input
                   id="inv-amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
                   value={invoiceAmount}
                   onChange={(e) => setInvoiceAmount(e.target.value)}
-                  placeholder="0.00"
                 />
               </div>
               <div className="space-y-1.5">
@@ -394,7 +456,7 @@ export default function PortalSupplierOrdersPage() {
                 id="inv-notes"
                 value={invoiceNotes}
                 onChange={(e) => setInvoiceNotes(e.target.value)}
-                rows={2}
+                rows={3}
               />
             </div>
           </div>
@@ -404,13 +466,10 @@ export default function PortalSupplierOrdersPage() {
             </Button>
             <Button
               className={PORTAL_PRIMARY_BTN_CLASS}
-              disabled={
-                submitInvoiceMutation.isPending || !invoiceNumber.trim() || !invoiceAmount.trim()
-              }
+              disabled={submitInvoiceMutation.isPending || !invoiceAmount.trim() || !invoicePoId}
               onClick={() => submitInvoiceMutation.mutate()}
             >
-              {submitInvoiceMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Submit
+              {submitInvoiceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit"}
             </Button>
           </DialogFooter>
         </DialogContent>

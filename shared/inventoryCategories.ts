@@ -58,6 +58,13 @@ export const DEFAULT_INVENTORY_CATEGORIES: readonly InventoryCategoryDefault[] =
     fieldTemplate: "consumables",
     sortOrder: 60,
   },
+  {
+    name: "Vehicles",
+    slug: "vehicles",
+    itemCodePrefix: "VHC",
+    fieldTemplate: "equipment",
+    sortOrder: 70,
+  },
 ] as const;
 
 /** Legacy / friendly CSV labels → default slugs (no duplicate categories). */
@@ -80,6 +87,9 @@ export const INVENTORY_CATEGORY_ALIASES: Record<string, string> = {
   grocery: "consumables",
   beverages: "consumables",
   fmcg: "consumables",
+  vehicle: "vehicles",
+  vehicles: "vehicles",
+  vhc: "vehicles",
 };
 
 export const INVENTORY_FIELD_TEMPLATES: InventoryFieldTemplate[] = [

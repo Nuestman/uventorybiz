@@ -18,6 +18,37 @@ MineAid HMS history (pre–uventorybiz) is archived at [`purged/docs/CHANGELOG_M
 
 ### Docs
 
+### Schema
+
+---
+
+## [1.3.0] - 2026-07-23
+
+Portal orders as real sales, supplier PO confirm/ship/invoice lifecycle, fulfillment exceptions, configurable return window, and extra POS tenders.
+
+### Added
+
+- **Portal orders → POS sales** — stock deduct + `pos_sales` at ready/out for delivery; Portal badge on `/sales`; returns restock automatically.
+- **PO lifecycle** — supplier Confirm → Ship; buyer receive gated on `shipped`; auto invoice numbers; one active invoice per PO.
+- **Fulfillment exceptions** — staff Orders → Exceptions for not-received (hold/restock) and returns; backfill for existing exception statuses.
+- **Vehicles (VHC)** system inventory category.
+- **Portal return window** — Settings: days after receipt/completion when customers may request returns (default 3). POS staff returns unchanged.
+- **POS payment methods** — Mobile Money and Credit (Pay Later) alongside cash/card/other.
+
+### Changed
+
+- Supplier portal invoice UX: stage-gated actions; amount/date prefilled.
+- Orders attention badge includes accepted invoices awaiting payment.
+
+### Docs
+
+- [PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md](./PORTAL_SALES_PO_INVOICE_EXCEPTIONS_PLAN.md) (implemented); updated PORTAL_GUIDE, POS_GUIDE, TENANT_SETTINGS_AND_BRANDING.
+
+### Schema
+
+- Drizzle `0026_portal_sales_po_exceptions` (`shipped` PO status, portal sale link, fulfillment_exceptions).
+- Drizzle `0027_return_window_and_pos_payments` (`tenants.return_window_days`; `mobile_money` / `credit` on `pos_payment_method`).
+
 ---
 
 ## [1.2.0] - 2026-07-19

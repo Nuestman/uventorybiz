@@ -26,8 +26,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import {
+  DEFAULT_RETURN_WINDOW_DAYS,
   ORDER_RECEIPT_GRACE_DAYS,
+  isWithinReturnWindow,
   orderGraceEndsAt,
+  orderReturnDeadline,
   PORTAL_ORDER_STATUS_LABELS,
   type PortalOrderStatus,
 } from "@shared/portalOrders";
@@ -62,6 +65,7 @@ type OrderRow = {
     returnRequestedAt: string | null;
     returnReason: string | null;
     returnedAt: string | null;
+    completedAt: string | null;
     total: string;
     currencyCode: string;
     createdAt: string | null;
@@ -146,6 +150,7 @@ export default function PortalOrdersPage() {
   const { session } = usePortalSession();
   const supportPhone = session?.supportPhone ?? session?.tenantContact?.phone ?? null;
   const returnsEnabled = session?.tenant.returnsEnabled !== false;
+  const returnWindowDays = session?.tenant.returnWindowDays ?? DEFAULT_RETURN_WINDOW_DAYS;
 
   const [reportOrderId, setReportOrderId] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState("");
@@ -511,19 +516,46 @@ export default function PortalOrdersPage() {
                   ) : null}
 
                   {order.status === "completed" && returnsEnabled ? (
-                    <div className="flex justify-end">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setReturnOrderId(order.id);
-                          setReturnReason("");
-                        }}
-                      >
-                        <Undo2 className="h-3.5 w-3.5 mr-1.5" />
-                        Request return
-                      </Button>
-                    </div>
+                    (() => {
+                      const withinWindow = isWithinReturnWindow(
+                        order.receiptConfirmedAt,
+                        order.completedAt,
+                        returnWindowDays,
+                      );
+                      const deadline = orderReturnDeadline(
+                        order.receiptConfirmedAt,
+                        order.completedAt,
+                        returnWindowDays,
+                      );
+                      if (!withinWindow) {
+                        return (
+                          <p className="text-xs text-uventorybiz-gray text-right">
+                            The {returnWindowDays}-day return window
+                            {deadline ? ` ended on ${deadline.toLocaleDateString()}` : " has ended"}.
+                          </p>
+                        );
+                      }
+                      return (
+                        <div className="flex flex-col items-end gap-1">
+                          {deadline ? (
+                            <p className="text-xs text-uventorybiz-gray">
+                              Returns accepted until {deadline.toLocaleDateString()}.
+                            </p>
+                          ) : null}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setReturnOrderId(order.id);
+                              setReturnReason("");
+                            }}
+                          >
+                            <Undo2 className="h-3.5 w-3.5 mr-1.5" />
+                            Request return
+                          </Button>
+                        </div>
+                      );
+                    })()
                   ) : null}
 
                   {order.status === "pending" && (

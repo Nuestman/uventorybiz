@@ -14,6 +14,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenantSettings } from "@/hooks/useTenantSettings";
 import MobileNav from "@/components/MobileNav";
 import { Loader2, Plus, Printer, RotateCcw, ScanBarcode, Search, Trash2, UserRound, X, XCircle } from "lucide-react";
+import {
+  POS_PAYMENT_METHODS,
+  POS_PAYMENT_METHOD_LABELS,
+  type PosPaymentMethod,
+} from "@shared/posPayments";
 
 interface PosRegister {
   id: string;
@@ -43,7 +48,7 @@ interface CartLine {
 }
 
 interface PaymentRow {
-  method: "cash" | "card" | "other";
+  method: PosPaymentMethod;
   amount: string;
 }
 
@@ -665,11 +670,13 @@ export default function PosPage() {
                       setPayments((prev) => prev.map((row, i) => (i === idx ? { ...row, method: v } : row)))
                     }
                   >
-                    <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="card">Card</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                      {POS_PAYMENT_METHODS.map((method) => (
+                        <SelectItem key={method} value={method}>
+                          {POS_PAYMENT_METHOD_LABELS[method]}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Input
@@ -871,9 +878,11 @@ export default function PosPage() {
                     <Select value={returnRefundMethod} onValueChange={(v: PaymentRow["method"]) => setReturnRefundMethod(v)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="card">Card</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                        {POS_PAYMENT_METHODS.map((method) => (
+                          <SelectItem key={method} value={method}>
+                            {POS_PAYMENT_METHOD_LABELS[method]}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

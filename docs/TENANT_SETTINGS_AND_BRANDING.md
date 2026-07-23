@@ -1,7 +1,7 @@
 ## Tenant Settings & Branding (`/settings`)
 
-**Last updated:** 2025-02-23  
-**Scope:** Tenant‑scoped configuration for currency, branding, and white‑label options.
+**Last updated:** 2026-07-23  
+**Scope:** Tenant‑scoped configuration for currency, branding, white‑label options, and returns policy.
 
 ---
 
@@ -10,11 +10,15 @@
 The **Tenant Settings** page (`/settings`) lets an authenticated tenant administrator configure:
 
 - **Currency preference** used across UI and inventory.
+- **Returns & refunds**:
+  - Master toggle (`returnsEnabled`) — when off, POS returns and portal return requests are blocked.
+  - **Portal return window** (`returnWindowDays`, default **3**) — days after receipt/completion during which a customer may request a return. Staff POS refunds are not limited by this window.
 - **White‑label branding**:
   - Application name.
   - Logo (sidebar + header).
   - Primary theme color.
   - Favicon.
+- **POC lab testing** (pharmacies / laboratories only).
 
 All settings are **tenant‑scoped** and are automatically applied to users in that tenant only. Super admin views that are not tenant‑scoped are unaffected.
 
@@ -50,7 +54,11 @@ All endpoints are mounted under `/api` and are tenant‑aware via `req.user.tena
   "appName": "My Tenant HMS",
   "logoUrl": "https://... or /public/tenants/<tenantId>/tenant-branding/...",
   "primaryColor": "#142F5C",
-  "faviconUrl": "https://... or /public/tenants/<tenantId>/tenant-branding/..."
+  "faviconUrl": "https://... or /public/tenants/<tenantId>/tenant-branding/...",
+  "returnsEnabled": true,
+  "returnWindowDays": 3,
+  "pocTestingEnabled": false,
+  "businessCategory": "retail"
 }
 ```
 
@@ -65,15 +73,16 @@ All endpoints are mounted under `/api` and are tenant‑aware via `req.user.tena
   "currencyCode": "GHS" | "USD" | "EUR" | "GBP" | "ZAR" | "XAF" | "XOF",
   "appName": "string | null",
   "logoUrl": "string | null",
-  "primaryColor": "string | null",   // hex, e.g. "#142F5C"
-  "faviconUrl": "string | null"
+  "primaryColor": "string | null",
+  "faviconUrl": "string | null",
+  "returnsEnabled": true,
+  "returnWindowDays": 3,
+  "pocTestingEnabled": false
 }
 ```
 
-- **Behavior:**
-  - Missing fields are left unchanged.
-  - Explicit `null` clears the setting (reverts to defaults at runtime).
-  - Every successful update is audited via the tenants controller (admin operation).
+- **`returnWindowDays`:** integer **1–365**. Saved via the Returns card **Save** button (independent of branding form).
+- **`returnsEnabled` / `pocTestingEnabled`:** toggles save immediately.
 
 ---
 

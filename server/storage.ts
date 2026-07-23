@@ -8573,6 +8573,11 @@ export class DatabaseStorage implements IStorage {
     return await db.transaction(async (tx) => {
       const [po] = await tx.select().from(purchaseOrders).where(and(eq(purchaseOrders.id, poId), eq(purchaseOrders.tenantId, tenantId)));
       if (!po) return undefined;
+      if (po.status !== "shipped" && po.status !== "partially_received") {
+        throw new Error(
+          "Receive is only allowed after the supplier has marked the PO as shipped (or for continuing a partial receive).",
+        );
+      }
 
       for (const { itemId: masterItemId, quantityReceived: qty } of options.items) {
         if (qty <= 0) continue;
